@@ -43,6 +43,7 @@
   ランキングの名前など他人が入力した文字列は必ず `textContent` で表示する（innerHTML 禁止）。
 - `mahjong-logic.test.js` — ロジックのテスト。
 - `index.html` / `style.css` — マークアップと見た目。色は `style.css` 冒頭の CSS 変数で管理する。
+  キャラクター（謎の猫）の絵柄は `index.html` 冒頭の SVG（`<symbol id="neko-sit">` など）で、`<use href="#neko-sit">` で置く。
 
 ## 牌の表現
 - 牌は 0〜33 の整数。0〜8 萬子 / 9〜17 筒子 / 18〜26 索子 / 27〜33 東南西北白發中。

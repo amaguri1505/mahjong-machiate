@@ -71,7 +71,7 @@
   function setAuthMode(mode) {
     authMode = mode;
     const m = MODES[mode];
-    $("auth-title").textContent = m.title;
+    $("auth-title-text").textContent = m.title;
     authSubmit.textContent = m.submit;
     authNote.textContent = m.note || "";
     authNote.hidden = !m.note;

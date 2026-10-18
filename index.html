@@ -7,13 +7,100 @@
   <meta name="claude:viewport-fit-sides" content="cover" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Shippori+Mincho+B1:wght@600;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- 謎の猫（ナゾネコ）の絵柄。体の色は color、目や頬は --neko-* 変数で決まる -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <g id="neko-head-shape">
+        <path d="M21 44 17 8 45 26Z" />
+        <path d="M79 44 83 8 55 26Z" />
+        <ellipse cx="50" cy="47" rx="32" ry="26" />
+      </g>
+      <g id="neko-head">
+        <use href="#neko-head-shape" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 6; stroke-linejoin: round" />
+        <use href="#neko-head-shape" style="fill: currentColor; stroke: none" />
+        <path d="M25 33 23 17 36 26Z" style="fill: var(--neko-blush)" />
+        <path d="M75 33 77 17 64 26Z" style="fill: var(--neko-blush)" />
+        <path d="M46 27a6 6 0 1 0 8 8a5 5 0 1 1-8-8Z" style="fill: var(--neko-mark)" />
+        <ellipse cx="27" cy="58" rx="5.5" ry="3.2" style="fill: var(--neko-blush)" />
+        <ellipse cx="73" cy="58" rx="5.5" ry="3.2" style="fill: var(--neko-blush)" />
+        <g style="fill: none; stroke: var(--neko-ink); stroke-width: 2.2; stroke-linecap: round">
+          <path d="M44 58q3 4 6 0q3 4 6 0" />
+          <path d="M18 51l-10-2M18 56l-10 1M82 51l10-2M82 56l10 1" />
+        </g>
+        <path d="M47.5 53h5l-2.5 2.6Z" style="fill: var(--neko-ink)" />
+      </g>
+      <g id="neko-eyes-open">
+        <circle cx="38" cy="47" r="8.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+        <circle cx="62" cy="47" r="8.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+        <circle cx="40.5" cy="45" r="4" style="fill: var(--neko-ink)" />
+        <circle cx="64.5" cy="45" r="4" style="fill: var(--neko-ink)" />
+        <circle cx="39" cy="43.5" r="1.3" style="fill: var(--neko-eye)" />
+        <circle cx="63" cy="43.5" r="1.3" style="fill: var(--neko-eye)" />
+      </g>
+      <path id="neko-eyes-closed" d="M31 48q7 6 14 0M55 48q7 6 14 0" style="fill: none; stroke: var(--neko-ink); stroke-width: 2.6; stroke-linecap: round" />
+    </defs>
+
+    <!-- すわり -->
+    <symbol id="neko-sit" viewBox="0 0 104 104">
+      <path d="M68 94c22 2 30-18 20-30" style="fill: none; stroke: var(--neko-ink); stroke-width: 13; stroke-linecap: round" />
+      <path d="M68 94c22 2 30-18 20-30" style="fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round" />
+      <ellipse cx="50" cy="78" rx="26" ry="20" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 3" />
+      <ellipse cx="40" cy="96" rx="7" ry="4.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <ellipse cx="60" cy="96" rx="7" ry="4.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <use href="#neko-head" />
+      <use href="#neko-eyes-open" />
+    </symbol>
+
+    <!-- 枠のふちからのぞく顔と前足 -->
+    <symbol id="neko-peek" viewBox="0 4 100 74">
+      <use href="#neko-head" />
+      <use href="#neko-eyes-open" />
+      <ellipse cx="30" cy="72" rx="9" ry="5.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <ellipse cx="70" cy="72" rx="9" ry="5.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+    </symbol>
+
+    <!-- ねむり -->
+    <symbol id="neko-sleep" viewBox="0 0 130 84">
+      <ellipse cx="74" cy="62" rx="44" ry="19" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 3" />
+      <path d="M112 66c10 12-20 16-42 12" style="fill: none; stroke: var(--neko-ink); stroke-width: 12; stroke-linecap: round" />
+      <path d="M112 66c10 12-20 16-42 12" style="fill: none; stroke: currentColor; stroke-width: 6.5; stroke-linecap: round" />
+      <g transform="translate(2 14) scale(0.74)">
+        <use href="#neko-head" />
+        <use href="#neko-eyes-closed" />
+      </g>
+      <text x="96" y="30" style="fill: var(--neko-ink); font: 700 16px sans-serif">z</text>
+      <text x="108" y="16" style="fill: var(--neko-ink); font: 700 12px sans-serif">z</text>
+    </symbol>
+
+    <!-- 肉球 -->
+    <symbol id="paw" viewBox="0 0 40 40">
+      <g style="fill: currentColor">
+        <ellipse cx="20" cy="27" rx="10" ry="8.5" />
+        <ellipse cx="8" cy="15" rx="4" ry="5" />
+        <ellipse cx="16" cy="8" rx="4" ry="5" />
+        <ellipse cx="25" cy="8" rx="4" ry="5" />
+        <ellipse cx="33" cy="15" rx="4" ry="5" />
+      </g>
+    </symbol>
+  </svg>
+
+  <!-- 背景にただよう猫と肉球（飾り） -->
+  <div class="bg-deco" aria-hidden="true">
+    <svg class="deco d1 neko lav"><use href="#neko-sit" /></svg>
+    <svg class="deco d2 paw-mark"><use href="#paw" /></svg>
+    <svg class="deco d3 neko mint"><use href="#neko-peek" /></svg>
+    <svg class="deco d4 paw-mark"><use href="#paw" /></svg>
+    <svg class="deco d5 neko yellow"><use href="#neko-sleep" /></svg>
+    <svg class="deco d6 paw-mark"><use href="#paw" /></svg>
+  </div>
+
   <main class="app">
     <header class="topbar">
-      <h1 class="brand">待ち当て</h1>
+      <h1 class="brand"><svg class="neko night brand-neko" aria-hidden="true"><use href="#neko-sit" /></svg>待ち当て</h1>
       <div class="stats">
         <div class="stat">
           <span class="stat-label">残り</span>
@@ -28,6 +115,7 @@
     <div class="timebar" aria-hidden="true"><span id="timebar-fill"></span></div>
 
     <section class="question" id="question">
+      <svg class="neko pink peek-neko" aria-hidden="true"><use href="#neko-peek" /></svg>
       <div class="question-head">
         <span id="question-no">第1問</span>
         <span class="mode-chip" id="mode-chip">普通の手</span>
@@ -48,6 +136,10 @@
 
   <div class="overlay" id="start-overlay">
     <div class="sheet">
+      <div class="hero">
+        <svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <p class="bubble">待ちはどこかにゃ…？</p>
+      </div>
       <h2>麻雀 待ち当て</h2>
       <ul class="rules">
         <li>持ち時間は<strong>30秒</strong>。テンパイした手牌の待ちを、すべて選んで答えます。</li>
@@ -62,7 +154,11 @@
 
   <div class="overlay" id="end-overlay" hidden>
     <div class="sheet">
-      <h2>時間切れ</h2>
+      <div class="sheet-title">
+        <svg class="neko yellow title-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <h2>時間切れ</h2>
+        <p class="bubble small">おつかれにゃ</p>
+      </div>
       <div class="account-slot" hidden></div>
       <div class="final">
         <p class="final-score"><span id="final-score">0</span>点</p>
@@ -85,7 +181,7 @@
       <section class="ranking">
         <h3 id="ranking-title">ランキング</h3>
         <ol class="ranking-list" id="ranking-list"></ol>
-        <p class="ranking-empty" id="ranking-empty">まだ記録がありません。最初の記録を登録しましょう。</p>
+        <p class="ranking-empty" id="ranking-empty"><svg class="neko lav empty-neko" aria-hidden="true"><use href="#neko-sleep" /></svg>まだ記録がありません。最初の記録を登録しましょう。</p>
       </section>
 
       <details class="review">
@@ -100,7 +196,7 @@
   <div class="overlay" id="auth-overlay" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <div class="sheet-head">
-        <h2 id="auth-title">ログイン</h2>
+        <h2 id="auth-title"><svg class="neko pink inline-neko" aria-hidden="true"><use href="#neko-peek" /></svg><span id="auth-title-text">ログイン</span></h2>
         <button type="button" class="btn ghost small" id="auth-close">閉じる</button>
       </div>
       <div class="tabs" id="auth-tabs" role="tablist">
@@ -128,7 +224,7 @@
   <div class="overlay" id="mypage-overlay" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mypage-title">
       <div class="sheet-head">
-        <h2 id="mypage-title">マイページ</h2>
+        <h2 id="mypage-title"><svg class="neko mint inline-neko" aria-hidden="true"><use href="#neko-peek" /></svg>マイページ</h2>
         <button type="button" class="btn ghost small" id="mypage-close">閉じる</button>
       </div>
       <p class="form-note" id="mypage-email"></p>
