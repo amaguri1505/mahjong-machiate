@@ -1147,7 +1147,231 @@ button.tile.selected {
   grid-template-columns: minmax(0, 1fr) auto 5.5em;
 }
 
+/* ---- 遊び方 ---- */
+.howto-link {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 2.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--lav-soft);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.howto-link:focus-visible {
+  outline: 3px solid var(--lav);
+  outline-offset: 2px;
+}
+
+.howto-link:active {
+  translate: 2px 2px;
+  box-shadow: none;
+}
+
+/* 遊び方は開始・終了画面より手前に出す */
+#howto-overlay {
+  z-index: 30;
+}
+
+.sheet.howto {
+  width: min(100%, 520px);
+}
+
+.lesson {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 2.5px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+.lesson:nth-of-type(2n) {
+  background: var(--mint-soft);
+}
+
+.lesson h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.lesson p {
+  margin: 0;
+}
+
+.lesson strong {
+  color: #d94f86;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  flex: none;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+}
+
+.howto-tiles {
+  display: inline-flex;
+  gap: 1px;
+  margin: 0;
+}
+
+.howto-tiles .tile {
+  width: 1.55rem;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: 0 2px 0 var(--tile-back), 0 3px 0 1px var(--line);
+}
+
+.tile-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 6px;
+}
+
+.group {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 4px 4px 2px;
+  border: 2px dashed var(--pink);
+  border-radius: 10px;
+}
+
+.group.head {
+  border-color: var(--lav);
+}
+
+.group figcaption {
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: var(--muted);
+}
+
+.ghost-tile {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  aspect-ratio: 3 / 4;
+  border: 2px dashed var(--pink);
+  border-radius: 4px;
+  background: var(--pink-soft);
+  color: #d94f86;
+  font-weight: 900;
+}
+
+.answer-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.kinds {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10em, 1fr));
+  gap: 8px;
+}
+
+.kinds div {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.kinds dt {
+  font-weight: 900;
+}
+
+.kinds dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.judge {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.judge li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 0.85rem;
+}
+
+/* ○ と × のバッジ */
+.judge li.ok::before,
+.judge li.ng::before {
+  display: grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 900;
+}
+
+.judge li.ok::before {
+  content: "○";
+  background: var(--good);
+}
+
+.judge li.ng::before {
+  content: "×";
+  background: var(--bad);
+}
+
+.judge li.ng .howto-tiles {
+  opacity: 0.75;
+}
+
+.shapes .name {
+  min-width: 2.6em;
+  font-weight: 900;
+}
+
+.shapes .arrow {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.shapes .note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 400px) {
+  .howto-link {
+    padding-inline: 9px;
+  }
+
   .brand {
     font-size: 1.25rem;
   }

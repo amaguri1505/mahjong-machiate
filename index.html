@@ -101,6 +101,7 @@
   <main class="app">
     <header class="topbar">
       <h1 class="brand"><svg class="neko night brand-neko" aria-hidden="true"><use href="#neko-sit" /></svg>待ち当て</h1>
+      <button type="button" class="howto-link" data-open-howto>遊び方</button>
       <div class="stats">
         <div class="stat">
           <span class="stat-label">残り</span>
@@ -147,6 +148,7 @@
         <li><strong>3問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
         <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
       </ul>
+      <button type="button" class="link-btn" data-open-howto>麻雀の形がわからないときは「遊び方」へ</button>
       <div class="account-slot" hidden></div>
       <button type="button" class="btn primary" id="start-btn">はじめる</button>
     </div>
@@ -253,6 +255,83 @@
       </form>
 
       <button type="button" class="btn ghost" id="logout-btn">ログアウト</button>
+    </div>
+  </div>
+
+  <!-- 遊び方（図解）。[data-tiles] の中身は main.js が牌の絵で埋める -->
+  <div class="overlay" id="howto-overlay" hidden>
+    <div class="sheet howto" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+      <div class="sheet-head">
+        <h2 id="howto-title">遊び方</h2>
+        <button type="button" class="btn ghost small" id="howto-close">閉じる</button>
+      </div>
+      <div class="hero">
+        <svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <p class="bubble">ナゾネコの<br />麻雀教室にゃ</p>
+      </div>
+
+      <section class="lesson">
+        <h3><span class="step">1</span>アガリの形は「4メンツ＋1雀頭」</h3>
+        <p>3枚1組の<strong>メンツ</strong>を4つと、同じ牌2枚の<strong>雀頭（アタマ）</strong>を1つ。合わせて14枚でアガリです。</p>
+        <div class="tile-row">
+          <figure class="group"><span class="howto-tiles" data-tiles="123m"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="456p"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="789s"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="777z"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group head"><span class="howto-tiles" data-tiles="11z"></span><figcaption>雀頭</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">2</span>メンツは2種類</h3>
+        <dl class="kinds">
+          <div>
+            <dt>順子（シュンツ）</dt>
+            <dd>同じ色の数字が3つ続く</dd>
+            <dd class="howto-tiles" data-tiles="345p"></dd>
+          </div>
+          <div>
+            <dt>刻子（コーツ）</dt>
+            <dd>まったく同じ牌が3枚</dd>
+            <dd class="howto-tiles" data-tiles="222m"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">3</span>つながらない並び</h3>
+        <ul class="judge">
+          <li class="ok"><span class="howto-tiles" data-tiles="789m"></span><span>7・8・9 は順子</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="8m 9m 1m"></span><span>9 の次は 1 に戻らない。1 と 9 はつながらない</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="3m4p5s"></span><span>色がちがうとつながらない</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="123z"></span><span>字牌は横につながらない（東南西も順子にならない）</span></li>
+          <li class="ok"><span class="howto-tiles" data-tiles="666z"></span><span>字牌は同じ牌を3枚（刻子）か2枚（雀頭）で使う</span></li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">4</span>「待ち」とは</h3>
+        <p>出題は13枚。<strong>あと1枚で4メンツ＋1雀頭になる牌</strong>が「待ち」です。待ちが2種類以上あるときは、全部選んで「決定」。</p>
+        <div class="tile-row">
+          <span class="howto-tiles" data-tiles="123m456p789s11z"></span>
+          <span class="howto-tiles" data-tiles="34s"></span><span class="ghost-tile" aria-label="待ち">?</span>
+        </div>
+        <p class="answer-line">答え <span class="howto-tiles" data-tiles="25s"></span><span>（2索・5索のどちらでもアガリ）</span></p>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">5</span>待ちの形いろいろ</h3>
+        <ul class="judge shapes">
+          <li><span class="name">両面</span><span class="howto-tiles" data-tiles="34s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="25s"></span></li>
+          <li><span class="name">嵌張</span><span class="howto-tiles" data-tiles="46s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="5s"></span><span class="note">間の1枚</span></li>
+          <li><span class="name">辺張</span><span class="howto-tiles" data-tiles="12s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="3s"></span><span class="note">9 はつながらないので 3 だけ</span></li>
+          <li><span class="name">双碰</span><span class="howto-tiles" data-tiles="1177z"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="17z"></span><span class="note">どちらかが刻子になる</span></li>
+          <li><span class="name">単騎</span><span class="howto-tiles" data-tiles="5s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="5s"></span><span class="note">同じ牌で雀頭を作る</span></li>
+        </ul>
+        <p class="form-note">ほかに、同じ牌2枚の組を7つ作る「七対子」や、1・9・字牌を1枚ずつ集める「国士無双」という特別な形もあります。手牌で4枚とも使っている牌は待ちになりません。</p>
+      </section>
+
+      <button type="button" class="btn primary" id="howto-done">わかった！</button>
     </div>
   </div>
 

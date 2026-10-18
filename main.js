@@ -21,6 +21,7 @@ const rankingTitle = $("ranking-title");
 const rankingList = $("ranking-list");
 const rankingEmpty = $("ranking-empty");
 const reviewList = $("review-list");
+const howtoOverlay = $("howto-overlay");
 
 const KANJI_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
 const SUIT_CHARS = ["萬", "筒", "索"];
@@ -349,6 +350,28 @@ async function saveOnlinePlay() {
   }
 }
 
+// ---- 遊び方 ----
+
+// 図解の [data-tiles="123m"] を牌の絵で埋める。parseHand は並べ替えるので、
+// 書いた順に並べたいときは "8m 9m 1m" のように空白で区切る
+function renderHowto() {
+  howtoOverlay.querySelectorAll("[data-tiles]").forEach((el) => {
+    const tiles = el.dataset.tiles.split(" ").flatMap(L.parseHand);
+    el.replaceChildren(...tiles.map((t) => createTile(t)));
+  });
+}
+
+// 遊び方を見ている間も時計は止まらない（持ち時間はゲーム全体で30秒）
+function openHowto() {
+  howtoOverlay.hidden = false;
+  howtoOverlay.scrollTop = 0;
+  $("howto-close").focus();
+}
+
+function closeHowto() {
+  howtoOverlay.hidden = true;
+}
+
 // ---- 入力 ----
 
 paletteEl.addEventListener("click", (e) => {
@@ -360,11 +383,18 @@ $("submit-btn").addEventListener("click", submit);
 $("start-btn").addEventListener("click", startGame);
 $("restart-btn").addEventListener("click", startGame);
 entryForm.addEventListener("submit", registerScore);
+document.querySelectorAll("[data-open-howto]").forEach((btn) => btn.addEventListener("click", openHowto));
+$("howto-close").addEventListener("click", closeHowto);
+$("howto-done").addEventListener("click", closeHowto);
 
 // 回答中の Enter は、どのボタンにフォーカスがあっても「決定」として扱う。
 // 押しっぱなしの自動リピートで空の回答を送らないよう e.repeat は無視する。
 window.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter" || phase !== "answer") return;
+  if (e.key === "Escape" && !howtoOverlay.hidden) {
+    closeHowto();
+    return;
+  }
+  if (e.key !== "Enter" || phase !== "answer" || !howtoOverlay.hidden) return;
   e.preventDefault();
   if (!e.repeat) submit();
 });
@@ -383,6 +413,7 @@ streak = 0;
 questionNo = 0;
 newQuestion();
 renderStatus();
+renderHowto();
 setupRanking();
 window.Account.onChange(() => {
   if (phase === "over") saveOnlinePlay();
