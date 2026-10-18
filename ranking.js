@@ -1,6 +1,7 @@
 // ランキングの保存先。
+// Supabase につながるとき（online.js）は plays 表を使い、ログインした人の記録だけが載る。
 // Artifact として開いたときは共有DB（claude.use("db")）に保存し、リンクを開ける全員で同じ表を見る。
-// index.html をローカルで開いたときは localStorage に保存する（その端末だけのランキング）。
+// どちらも使えないときは localStorage に保存する（その端末だけのランキング）。
 (function (root) {
   const L = root.MahjongLogic;
   const COLLECTION = "scores";
@@ -56,7 +57,41 @@
     };
   }
 
+  // Supabase の一覧は自動では届かないので、登録したときと refresh() のときに読み直す
+  function createOnlineStore(online) {
+    let listener = null;
+    let errorListener = null;
+    const refresh = async () => {
+      try {
+        const entries = await online.topPlays(TOP_N);
+        if (listener) listener(entries);
+      } catch (e) {
+        if (errorListener) errorListener(e);
+      }
+    };
+    return {
+      shared: true,
+      online: true,
+      subscribe(onChange, onError) {
+        listener = onChange;
+        errorListener = onError;
+        refresh();
+        return () => {
+          listener = null;
+          errorListener = null;
+        };
+      },
+      refresh,
+      async add(entry) {
+        const id = await online.savePlay(entry);
+        refresh();
+        return id;
+      },
+    };
+  }
+
   async function openRankingStore() {
+    if (root.Online?.available) return createOnlineStore(root.Online);
     if (typeof root.claude?.use === "function") {
       try {
         const db = await root.claude.use("db");

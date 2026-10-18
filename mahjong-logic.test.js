@@ -257,3 +257,17 @@ test("sortRanking: 点数の高い順、同点は先に記録した方が上", (
   ]);
   assert.deepEqual(sorted.map((e) => e.name), ["C", "B", "A"]);
 });
+
+test("summarizePlays: 最高点・平均点・正解率・最高連続をまとめる", () => {
+  const s = L.summarizePlays([
+    { score: 8000, solved: 4, answered: 5, bestStreak: 3 },
+    { score: 1500, solved: 1, answered: 3, bestStreak: 1 },
+    { score: 0, solved: 0, answered: 2, bestStreak: 0 },
+  ]);
+  assert.deepEqual(s, { count: 3, best: 8000, average: 3167, accuracy: 50, bestStreak: 3 });
+});
+
+test("summarizePlays: 記録がなければ0、1問も答えていなければ正解率は null", () => {
+  assert.deepEqual(L.summarizePlays([]), { count: 0, best: 0, average: 0, accuracy: null, bestStreak: 0 });
+  assert.equal(L.summarizePlays([{ score: 0, solved: 0, answered: 0, bestStreak: 0 }]).accuracy, null);
+});

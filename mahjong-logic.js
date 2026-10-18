@@ -402,6 +402,22 @@
     return entries.filter((e) => e.score >= score).length + 1;
   }
 
+  // ---- マイページ ----
+
+  // プレイ記録 [{score, solved, answered, bestStreak}] から成績をまとめる。
+  // 正解率は答えた問題数に対する正解数（%、整数）。1問も答えていなければ null。
+  function summarizePlays(plays) {
+    const sum = (key) => plays.reduce((acc, p) => acc + p[key], 0);
+    const answered = sum("answered");
+    return {
+      count: plays.length,
+      best: plays.reduce((max, p) => Math.max(max, p.score), 0),
+      average: plays.length > 0 ? Math.round(sum("score") / plays.length) : 0,
+      accuracy: answered > 0 ? Math.round((sum("solved") / answered) * 100) : null,
+      bestStreak: plays.reduce((max, p) => Math.max(max, p.bestStreak), 0),
+    };
+  }
+
   const MahjongLogic = {
     TILE_KINDS,
     STREAK_FOR_CHINITSU,
@@ -423,6 +439,7 @@
     sanitizeName,
     sortRanking,
     rankForScore,
+    summarizePlays,
   };
 
   if (typeof module !== "undefined" && module.exports) {

@@ -17,6 +17,7 @@ const entryForm = $("entry-form");
 const nameInput = $("player-name");
 const entryBtn = $("entry-btn");
 const entryStatus = $("entry-status");
+const onlineStatus = $("online-status");
 const rankingTitle = $("ranking-title");
 const rankingList = $("ranking-list");
 const rankingEmpty = $("ranking-empty");
@@ -37,6 +38,9 @@ const selected = new Set();
 let rankingStore = null;
 let rankingEntries = [];
 let myEntryId = null;
+// ログインして遊ぶとき、まだ保存していない今回のプレイ（ログイン前に終わったプレイも後から保存する）
+let pendingPlay = null;
+let savingPlay = false;
 
 function createTile(t, tag = "div") {
   const el = document.createElement(tag);
@@ -219,6 +223,7 @@ function startGame() {
   questionNo = 0;
   history = [];
   myEntryId = null;
+  pendingPlay = null;
   lastResultEl.hidden = true;
   startOverlay.hidden = true;
   endOverlay.hidden = true;
@@ -234,10 +239,19 @@ function endGame() {
   $("final-score").textContent = formatPoints(score);
   $("final-solved").textContent = `${solved}問`;
   $("final-streak").textContent = bestStreak;
-  entryForm.hidden = false;
   entryBtn.disabled = false;
   nameInput.disabled = false;
   entryStatus.textContent = "";
+  if (rankingStore?.online) {
+    entryForm.hidden = true;
+    onlineStatus.hidden = false;
+    pendingPlay = { score, solved, answered: history.length, bestStreak };
+    rankingStore.refresh();
+    saveOnlinePlay();
+  } else {
+    entryForm.hidden = false;
+    onlineStatus.hidden = true;
+  }
   renderReview();
   renderRanking();
   endOverlay.hidden = false;
@@ -324,6 +338,31 @@ async function registerScore(e) {
   }
 }
 
+// ログインして遊んだプレイは、終了したら自動で記録する。名前はマイページの表示名を使う。
+async function saveOnlinePlay() {
+  if (!pendingPlay || savingPlay) return;
+  if (!window.Account.current()) {
+    onlineStatus.textContent = "この記録はまだ保存されていません。ログインすると保存できます。";
+    return;
+  }
+  savingPlay = true;
+  onlineStatus.textContent = "記録しています…";
+  try {
+    const rank = L.rankForScore(rankingEntries, pendingPlay.score);
+    myEntryId = await rankingStore.add(pendingPlay);
+    pendingPlay = null;
+    renderRanking();
+    onlineStatus.textContent =
+      rank <= window.Ranking.TOP_N
+        ? `${rank}位で記録しました。マイページにも残ります。`
+        : `記録しました。上位${window.Ranking.TOP_N}位には入りませんでした。`;
+  } catch {
+    onlineStatus.textContent = "記録できませんでした。ログインし直すと、もう一度記録します。";
+  } finally {
+    savingPlay = false;
+  }
+}
+
 // ---- 入力 ----
 
 paletteEl.addEventListener("click", (e) => {
@@ -359,3 +398,6 @@ questionNo = 0;
 newQuestion();
 renderStatus();
 setupRanking();
+window.Account.onChange(() => {
+  if (phase === "over") saveOnlinePlay();
+});

@@ -6,7 +6,12 @@
 - 持ち時間はゲーム全体で30秒。時計は止まらない。
 - 待ち牌をすべて選んで「決定」。過不足なく選んだときだけ正解。
 - 答えたらダイアログは出さずすぐ次の問題へ。正誤は手牌の枠の光で伝え、前の問題の結果（待ち・役・点数）は決定ボタンの下に1行で出す。
-- 終了画面で名前を入れてランキングに登録（プレイごとに1件、上位10件を表示）。全問の振り返りも見られる。
+- ランキングはプレイごとに1件、上位10件を表示。終了画面で全問の振り返りも見られる。
+- ログイン（Supabase のメール＋パスワード）:
+  - ログインして遊んだプレイは、終了時に自動でランキングとマイページに記録する。名前はマイページの表示名。
+  - ログインせずに遊んだプレイは保存しない。終了画面でログインすると、そのプレイを後から記録する。
+  - マイページ: 最高点・プレイ回数・平均点・正解率・最高連続・最近のプレイ10件、表示名の変更、ログアウト。
+  - Supabase につながらないとき（オフライン・Artifact）は、従来どおり名前を入れて端末内（Artifact は共有DB）のランキングに登録する。
 - 普通の手（萬筒索字の混合）で6問連続正解すると、清一色の出題に切り替わる。
 - 不正解に時間のペナルティはない。代わりに連続正解数が0に戻り、清一色の途中でも普通の手に戻る。
 - 得点は高目（一番高い待ち）でツモ和了したときの点数。前提は子・門前ツモ・東場南家・ドラなし・リーチなし。
@@ -15,16 +20,24 @@
 ## 絶対に守る制約
 - **ビルド不要を維持する**：`index.html` をブラウザで直接開く（`file://`）だけで動くこと。
   - そのため ES Modules（`import`/`export`）、バンドラ、トランスパイラは使わない。
-  - 外部ライブラリやnpm依存も追加しない（テストも Node 標準の `node:test` を使う）。Google Fonts の読み込みのみ例外。
-- スクリプトは `index.html` の `<script>` で読み込む。順番は `mahjong-logic.js` → `tile-art.js` → `ranking.js` → `main.js`。
+  - 外部ライブラリやnpm依存も追加しない（テストも Node 標準の `node:test` を使う）。
+    例外は Google Fonts と supabase-js（jsDelivr の UMD 版、バージョン固定）だけ。
+  - supabase-js が読み込めなくてもゲームは遊べること（ログイン機能だけが消える）。
+- スクリプトは `index.html` の `<script>` で読み込む。順番は
+  `mahjong-logic.js` → `tile-art.js` → supabase-js → `online.js` → `ranking.js` → `account.js` → `main.js`。
+- Supabase の鍵は publishable key だけをコードに書く。secret / service_role key は絶対にリポジトリに入れない。
+  データの保護は `supabase/schema.sql` のアクセスルール（RLS）で行う。
 - スマホ幅（390px程度）で横スクロールが出ないこと。
 
 ## ファイル構成
 - `mahjong-logic.js` — DOMに依存しない純粋なロジック（牌の表現、待ち判定、点数計算、出題、ゲーム進行の判定）。
   ブラウザでは `window.MahjongLogic`、Nodeでは `require()` で読み込める形（IIFE + `module.exports`）。
 - `tile-art.js` — 筒子・索子の絵柄（SVG）。座標は牌の面 30×40、色は CSS 変数をクラス経由で使う。
-- `ranking.js` — ランキングの保存先。Artifact では共有DB（`claude.use("db")` の `scores` コレクション）、
-  ローカルで開いたときは localStorage（その端末だけ）。並べ替えや名前の整形は `MahjongLogic` 側。
+- `online.js` — Supabase との通信（ログイン・表示名・プレイ記録）。DOM には触らない。`window.Online`。
+- `ranking.js` — ランキングの保存先。Supabase（`plays` 表）→ Artifact の共有DB（`claude.use("db")` の `scores`）
+  → localStorage（その端末だけ）の順に、使えるものを選ぶ。並べ替えや名前の整形は `MahjongLogic` 側。
+- `account.js` — ログイン画面・マイページの表示と入力。`window.Account`。
+- `supabase/schema.sql` — 表・新規登録時のプロフィール作成・アクセスルール。変えたら Supabase の SQL Editor で実行し直す。
 - `main.js` — DOM描画・入力・タイマー・画面遷移。ルールの判断は `MahjongLogic` を呼ぶだけにする。
   ランキングの名前など他人が入力した文字列は必ず `textContent` で表示する（innerHTML 禁止）。
 - `mahjong-logic.test.js` — ロジックのテスト。
@@ -46,6 +59,9 @@
 1. `npm test`（= `node --test`）がすべて通ること。
 2. ブラウザで `index.html` を開き、出題・回答・答え合わせ・清一色への切り替え・時間切れが動くこと。
    スマホ幅でも確認する（Chrome DevTools のデバイス表示か、ヘッドレスChromeでスクリーンショット）。
+3. ログインまわりを変えたら、新規登録・ログイン・終了時の自動記録・マイページ・ログアウト・
+   オフライン（supabase-js が読めない）のときに従来どおり遊べることを確かめる。
+   本物の Supabase にテスト用アカウントを勝手に作らない（偽の supabase-js に差し替えて確かめる）。
 
 ## 作業の進め方
 - 1機能につき1ブランチ（`feature/<名前>`）。`main` へ直接コミットしない。

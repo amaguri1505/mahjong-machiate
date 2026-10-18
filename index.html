@@ -56,6 +56,7 @@
         <li><strong>6問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
         <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
       </ul>
+      <div class="account-slot" hidden></div>
       <button type="button" class="btn primary" id="start-btn">はじめる</button>
     </div>
   </div>
@@ -63,6 +64,7 @@
   <div class="overlay" id="end-overlay" hidden>
     <div class="sheet">
       <h2>時間切れ</h2>
+      <div class="account-slot" hidden></div>
       <div class="final">
         <p class="final-score"><span id="final-score">0</span>点</p>
         <dl class="final-stats">
@@ -79,6 +81,7 @@
         </div>
         <p class="entry-status" id="entry-status" aria-live="polite"></p>
       </form>
+      <p class="entry-status" id="online-status" aria-live="polite" hidden></p>
 
       <section class="ranking">
         <h3 id="ranking-title">ランキング</h3>
@@ -95,9 +98,75 @@
     </div>
   </div>
 
+  <div class="overlay" id="auth-overlay" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <div class="sheet-head">
+        <h2 id="auth-title">ログイン</h2>
+        <button type="button" class="btn ghost small" id="auth-close">閉じる</button>
+      </div>
+      <div class="tabs" id="auth-tabs" role="tablist">
+        <button type="button" role="tab" data-mode="signin" aria-selected="true">ログイン</button>
+        <button type="button" role="tab" data-mode="signup" aria-selected="false">新規登録</button>
+      </div>
+      <p class="form-note" id="auth-note" hidden></p>
+      <form class="form" id="auth-form">
+        <label class="field" id="field-name">表示名（ランキングに出ます）
+          <input id="auth-name" type="text" autocomplete="nickname" placeholder="名無し" />
+        </label>
+        <label class="field" id="field-email">メールアドレス
+          <input id="auth-email" type="email" autocomplete="email" inputmode="email" required />
+        </label>
+        <label class="field" id="field-password">パスワード（6文字以上）
+          <input id="auth-password" type="password" autocomplete="current-password" minlength="6" required />
+        </label>
+        <button type="submit" class="btn primary" id="auth-submit">ログイン</button>
+        <p class="entry-status" id="auth-status" aria-live="polite"></p>
+      </form>
+      <button type="button" class="link-btn" id="auth-forgot">パスワードを忘れたとき</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="mypage-overlay" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mypage-title">
+      <div class="sheet-head">
+        <h2 id="mypage-title">マイページ</h2>
+        <button type="button" class="btn ghost small" id="mypage-close">閉じる</button>
+      </div>
+      <p class="form-note" id="mypage-email"></p>
+
+      <dl class="my-stats">
+        <div><dt>最高点</dt><dd id="my-best">-</dd></div>
+        <div><dt>プレイ回数</dt><dd id="my-count">-</dd></div>
+        <div><dt>平均点</dt><dd id="my-average">-</dd></div>
+        <div><dt>正解率</dt><dd id="my-accuracy">-</dd></div>
+        <div><dt>最高連続</dt><dd id="my-streak">-</dd></div>
+      </dl>
+
+      <section class="ranking">
+        <h3>最近のプレイ</h3>
+        <ol class="ranking-list history-list" id="my-history"></ol>
+        <p class="ranking-empty" id="my-history-empty">読み込んでいます…</p>
+      </section>
+
+      <form class="entry" id="profile-form">
+        <label for="profile-name">表示名（ランキングに出ます）</label>
+        <div class="entry-row">
+          <input id="profile-name" type="text" autocomplete="nickname" placeholder="名無し" />
+          <button type="submit" class="btn primary" id="profile-btn">変更</button>
+        </div>
+        <p class="entry-status" id="profile-status" aria-live="polite"></p>
+      </form>
+
+      <button type="button" class="btn ghost" id="logout-btn">ログアウト</button>
+    </div>
+  </div>
+
   <script src="mahjong-logic.js"></script>
   <script src="tile-art.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+  <script src="online.js"></script>
   <script src="ranking.js"></script>
+  <script src="account.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
