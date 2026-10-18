@@ -41,10 +41,11 @@ security definer
 set search_path = ''
 as $$
 declare
+  -- new のすぐ後ろに .id と書くと、チャット画面でURLと見なされてコピー時に壊れることがあるので括弧で囲む
   name text := left(btrim(coalesce(new.raw_user_meta_data ->> 'display_name', '')), 12);
 begin
   insert into public.profiles (id, display_name)
-  values (new.id, coalesce(nullif(name, ''), '名無し'))
+  values ((new).id, coalesce(nullif(name, ''), '名無し'))
   on conflict (id) do nothing;
   return new;
 end;
