@@ -17,6 +17,7 @@
 - `index.html` — マークアップ
 - `style.css` — 見た目
 - `mahjong-logic.js` — 待ち判定・点数計算・出題のロジック
+- `tile-art.js` — 筒子・索子の絵柄(SVG)
 - `ranking.js` — ランキングの保存（Artifact では共有、ローカルでは端末内）
 - `main.js` — 画面描画・入力・タイマー
 - `mahjong-logic.test.js` — ロジックのテスト

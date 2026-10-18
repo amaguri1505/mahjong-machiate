@@ -205,12 +205,37 @@ body {
   color: var(--man);
 }
 
-.tile[data-suit="p"] {
-  color: var(--pin);
+.tile .art {
+  width: 88%;
+  height: 88%;
 }
 
-.tile[data-suit="s"] {
-  color: var(--sou);
+.art .c-b {
+  fill: var(--pin);
+}
+
+.art .c-g {
+  fill: var(--sou);
+}
+
+.art .c-r {
+  fill: var(--man);
+}
+
+.art .c-w {
+  fill: var(--ivory);
+}
+
+.art .node {
+  stroke: var(--ivory);
+  stroke-width: 0.7;
+}
+
+.art .crest {
+  fill: none;
+  stroke: var(--man);
+  stroke-width: 1.2;
+  stroke-linecap: round;
 }
 
 .tile .glyph {

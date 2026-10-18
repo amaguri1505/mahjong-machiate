@@ -16,12 +16,13 @@
 - **ビルド不要を維持する**：`index.html` をブラウザで直接開く（`file://`）だけで動くこと。
   - そのため ES Modules（`import`/`export`）、バンドラ、トランスパイラは使わない。
   - 外部ライブラリやnpm依存も追加しない（テストも Node 標準の `node:test` を使う）。Google Fonts の読み込みのみ例外。
-- スクリプトは `index.html` の `<script>` で読み込む。順番は `mahjong-logic.js` → `ranking.js` → `main.js`。
+- スクリプトは `index.html` の `<script>` で読み込む。順番は `mahjong-logic.js` → `tile-art.js` → `ranking.js` → `main.js`。
 - スマホ幅（390px程度）で横スクロールが出ないこと。
 
 ## ファイル構成
 - `mahjong-logic.js` — DOMに依存しない純粋なロジック（牌の表現、待ち判定、点数計算、出題、ゲーム進行の判定）。
   ブラウザでは `window.MahjongLogic`、Nodeでは `require()` で読み込める形（IIFE + `module.exports`）。
+- `tile-art.js` — 筒子・索子の絵柄（SVG）。座標は牌の面 30×40、色は CSS 変数をクラス経由で使う。
 - `ranking.js` — ランキングの保存先。Artifact では共有DB（`claude.use("db")` の `scores` コレクション）、
   ローカルで開いたときは localStorage（その端末だけ）。並べ替えや名前の整形は `MahjongLogic` 側。
 - `main.js` — DOM描画・入力・タイマー・画面遷移。ルールの判断は `MahjongLogic` を呼ぶだけにする。

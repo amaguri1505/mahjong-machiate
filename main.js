@@ -43,7 +43,10 @@ function createTile(t, tag = "div") {
   el.className = "tile";
   el.dataset.suit = SUIT_KEYS[L.suitOf(t)];
   el.setAttribute("aria-label", L.tileName(t));
-  if (L.isHonor(t)) {
+  const art = window.TileArt.tileArt(t);
+  if (art) {
+    el.innerHTML = art;
+  } else if (L.isHonor(t)) {
     el.dataset.honor = t - 27;
     el.innerHTML = `<span class="glyph">${HONOR_CHARS[t - 27]}</span>`;
   } else {
