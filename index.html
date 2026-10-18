@@ -2,23 +2,78 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GameMVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>麻雀 待ち当て</title>
+  <meta name="claude:viewport-fit-sides" content="cover" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="ui">
-    <span id="score">Score: 0</span>
-    <span id="timer">Time: 30</span>
+  <main class="app">
+    <header class="topbar">
+      <h1 class="brand">待ち当て</h1>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">残り</span>
+          <span class="stat-value" id="timer">30.0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">点数</span>
+          <span class="stat-value" id="score">0</span>
+        </div>
+      </div>
+    </header>
+    <div class="timebar" aria-hidden="true"><span id="timebar-fill"></span></div>
+
+    <section class="question">
+      <div class="question-head">
+        <span id="question-no">第1問</span>
+        <span class="mode-chip" id="mode-chip">普通の手</span>
+        <span class="streak" id="streak" aria-live="polite"></span>
+      </div>
+      <div class="hand" id="hand" aria-label="手牌"></div>
+    </section>
+
+    <section class="answer">
+      <p class="prompt" id="prompt">待ち牌をすべて選んで「決定」</p>
+      <div class="palette" id="palette"></div>
+      <div class="reveal" id="reveal" hidden></div>
+      <div class="actions">
+        <button type="button" class="btn ghost" id="clear-btn">選択を解除</button>
+        <button type="button" class="btn primary" id="submit-btn">決定</button>
+        <button type="button" class="btn primary" id="next-btn" hidden>次の問題</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="start-overlay">
+    <div class="sheet">
+      <h2>麻雀 待ち当て</h2>
+      <ul class="rules">
+        <li>持ち時間は<strong>30秒</strong>。テンパイした手牌の待ちを、すべて選んで答えます。</li>
+        <li>正解すると、一番高い待ち（高目）でツモ和了したときの点数が入ります。子・東場南家・ドラなしで計算します。</li>
+        <li><strong>6問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
+        <li>答え合わせの間は時計が止まります。</li>
+      </ul>
+      <button type="button" class="btn primary" id="start-btn">はじめる</button>
+    </div>
   </div>
-  <canvas id="game" width="800" height="480"></canvas>
-  <div id="overlay" class="hidden">
-    <h1 id="overlay-title">Game Over</h1>
-    <p id="overlay-score"></p>
-    <button id="restart-btn">Restart</button>
+
+  <div class="overlay" id="end-overlay" hidden>
+    <div class="sheet">
+      <h2>時間切れ</h2>
+      <p class="final-score"><span id="final-score">0</span>点</p>
+      <dl class="final-stats">
+        <div><dt>正解</dt><dd id="final-solved">0問</dd></div>
+        <div><dt>最高連続</dt><dd id="final-streak">0</dd></div>
+      </dl>
+      <button type="button" class="btn primary" id="restart-btn">もう一度</button>
+    </div>
   </div>
-  <p id="hint">矢印キー / WASD で移動。コインを集めてスコアを稼ごう。</p>
-  <script src="game-logic.js"></script>
+
+  <script src="mahjong-logic.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
