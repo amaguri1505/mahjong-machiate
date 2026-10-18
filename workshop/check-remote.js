@@ -8,9 +8,10 @@ const env = fs.readFileSync(path.join(__dirname, '.setup', project, 'secrets.env
 const labs = JSON.parse(env.split('\n').find(s => s.startsWith('WORKSHOP_LABS=')).slice(14));
 const base = `https://${project}.supabase.co/functions/v1/workshop`;
 async function call(route, token, body, expected = 200) {
-  if (route.endsWith('/profiles/101')) {
+  if (route.endsWith('/profiles/101') || route.endsWith('/profiles/102')) {
     const mode = route.split('/')[1];
-    route = '/' + mode + '/profiles/' + (await call('/' + mode + '/status', token)).me;
+    const me = (await call('/' + mode + '/status', token)).me;
+    route = '/' + mode + '/profiles/' + (me + (route.endsWith('/102') ? 1 : 0));
   }
   const response = await fetch(base + route, { method: body === undefined ? 'GET' : 'POST', credentials: 'include', signal: AbortSignal.timeout(20000),
     headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:4173', Priority: 'u=1, i', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

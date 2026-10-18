@@ -75,9 +75,9 @@ Deno.serve(async request => {
       const participant = crypto.randomUUID();
       const name = body.name.trim();
       await client(lab.writeUrl).begin(async sql => {
-        await sql`insert into ${sql(lab.schema)}.users (id, participant_id, name) values (${participant}, ${participant}, ${name})`;
+        const [user] = await sql`insert into ${sql(lab.schema)}.users (id, participant_id, name) values (${participant}, ${participant}, ${name}) returning profile_id`;
         for (const mode of ['vulnerable', 'fixed']) {
-          const value = { ...seed(participant), userId: participant, name, participantName: name };
+          const value = { ...seed(user.profile_id), userId: user.profile_id, name, participantName: name };
           await sql`insert into ${sql(lab.schema)}.state (participant_id, mode, value) values (${participant}, ${mode}, ${sql.json(value)})`;
         }
       });
@@ -93,10 +93,13 @@ Deno.serve(async request => {
       await sql`set local lock_timeout = '2000ms'`;
       await sql`insert into ${sql(lab.schema)}.state (participant_id, mode, value) values (${participant}, ${mode}, ${sql.json(seed())}) on conflict do nothing`;
       const [row] = await sql`select value from ${sql(lab.schema)}.state where participant_id = ${participant} and mode = ${mode} for update`;
-      const [user] = await sql`select id from ${sql(lab.schema)}.users where participant_id = ${participant}`;
+      const [user] = await sql`select id, profile_id from ${sql(lab.schema)}.users where participant_id = ${participant}`;
       if (!user) fail(401, 'ユーザーが見つかりません。再登録してください。');
       const state = row.value;
-      state.userId = user.id;
+      if (state.userId !== user.profile_id) {
+        state.games?.forEach((p: any) => { p.userId = p.id === 'seed-guest' ? user.profile_id + 2 : user.profile_id; });
+      }
+      state.userId = user.profile_id;
       const result = await dispatch({ method: request.method, path: route, query: url.searchParams, body, mode, state,
         search: async (keyword: string, fixed: boolean) => {
           const reader = client(lab.readUrl);
@@ -104,7 +107,7 @@ Deno.serve(async request => {
             await read`set local statement_timeout = '1000ms'`;
             // 本人のプロフィールはwriterで読み出した現在モードの値をバインドする。
             // readerへの更新権限追加や、内部状態テーブルへのSELECT許可は不要。
-            const source = `with users as (select $3::text as id, $1::text as name, $2::int as published union all select id::text, name, published from "${lab.schema}".directory) `;
+            const source = `with users as (select $3::text as id, $1::text as name, $2::int as published union all select (id + $3::int - 101)::text, name, published from "${lab.schema}".directory) `;
             if (fixed) return await read.unsafe(source + 'select id, name, published from users where published = 1 and name like $4 limit 10', [state.name, Number(state.published), state.userId, '%' + keyword + '%'], { prepare: false });
             // 意図したSQLi。スキーマは環境設定からの固定値。名前のみの教材表に限定。
             // extended queryを使い複文を拒否。SQLi対策そのものは修正版のパラメータ化。

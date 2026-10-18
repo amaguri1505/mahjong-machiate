@@ -17,6 +17,7 @@ function createWorkshop(options = {}) {
   const labs = new Map();
   const sessions = new Map();
   const users = new Map();
+  let nextProfileId = 101;
   const codes = options.supabase ? [] : options.codes || [participantCode(0), participantCode(1)];
   codes.forEach((code, i) => {
     const db = new DatabaseSync(':memory:');
@@ -69,7 +70,7 @@ function createWorkshop(options = {}) {
         if (!lab) fail(401, '参加コードが違います。');
         if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 40) fail(400, '参加者名を1〜40文字で入力してください。');
         const name = body.name.trim();
-        const userId = crypto.randomUUID();
+        const userId = nextProfileId++;
         users.set(userId, { id: userId, name, labId: lab.id });
         lab = { ...lab, userId, states: { vulnerable: { ...seed(userId), userId, name, participantName: name }, fixed: { ...seed(userId), userId, name, participantName: name } }, tail: Promise.resolve() };
         const token = randomBytes(32).toString('hex');
@@ -90,10 +91,10 @@ function createWorkshop(options = {}) {
             // 教材の唯一のSQLi。sqliteの実SQLエンジンで実行する。
             // 本人の保存済みプロフィールと架空ユーザーを、読み取り専用SQLの中でまとめる。
             // 本人の名前・公開設定は常にバインド。意図的に連結するのは弱点版の検索語だけ。
-            const source = 'WITH users AS (SELECT ? AS id, ? AS name, ? AS published UNION ALL SELECT id, name, published FROM directory) ';
+            const source = 'WITH users AS (SELECT ? AS id, ? AS name, ? AS published UNION ALL SELECT id + ? - 101, name, published FROM directory) ';
             const sql = source + (fixed ? 'SELECT id, name, published FROM users WHERE published = 1 AND name LIKE ? LIMIT 10'
               : `SELECT id, name, published FROM users WHERE published = 1 AND name LIKE '%${keyword}%' LIMIT 10`);
-            const args = [state.userId, state.name, Number(state.published)];
+            const args = [state.userId, state.name, Number(state.published), state.userId];
             return fixed ? lab.db.prepare(sql).all(...args, `%${keyword}%`) : lab.db.prepare(sql).all(...args);
           } });
         lab.states[mode] = state;

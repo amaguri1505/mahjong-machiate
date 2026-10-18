@@ -13,10 +13,10 @@ async function setup(t) {
   t.after(() => app.close());
   const base = `http://127.0.0.1:${app.server.address().port}`;
   async function call(path, token, body, extra = {}) {
-    if (path.endsWith('/profiles/101')) {
+    if (path.endsWith('/profiles/101') || path.endsWith('/profiles/102')) {
       const mode = path.split('/')[1];
       const me = (await call('/' + mode + '/status', token)).data.me;
-      path = '/' + mode + '/profiles/' + me;
+      path = '/' + mode + '/profiles/' + (me + (path.endsWith('/102') ? 1 : 0));
     }
     const response = await fetch(base + '/api' + path, { method: body === undefined ? 'GET' : 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra },
@@ -198,10 +198,11 @@ test('ユーザーID: 登録ごとに固有ID、記録・リセットで維持�
   const { call, a, b, base } = await setup(t);
   const me = (await call('/vulnerable/status', a)).data.me;
   const other = (await call('/vulnerable/status', b)).data.me;
-  assert.match(me, /^[0-9a-f-]{36}$/); assert.notEqual(me, other);
+  assert.equal(me, 101); assert.equal(other, 102);
   assert.equal((await call('/vulnerable/profiles/' + me, a)).data.id, me);
-  assert.equal((await call('/vulnerable/profiles/' + other, a)).status, 404);
-  assert.equal((await fetch(base + '/api/vulnerable/profiles/101', { headers: { Authorization: 'Bearer ' + a } })).status, 404);
+  const rival = await fetch(base + '/api/vulnerable/profiles/' + other, { headers: { Authorization: 'Bearer ' + a } });
+  assert.equal((await rival.json()).name, 'ライバル猫');
+  assert.equal((await fetch(base + '/api/fixed/profiles/' + other, { headers: { Authorization: 'Bearer ' + a } })).status, 404);
   const generation = (await call('/vulnerable/status', a)).data.generation;
   await call('/vulnerable/plays', a, { generation, score: 9000, solved: 1, answered: 1, bestStreak: 1 });
   assert.equal((await call('/vulnerable/profiles/' + me, a)).data.history[0].userId, me);

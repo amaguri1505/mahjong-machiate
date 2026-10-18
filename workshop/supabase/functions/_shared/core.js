@@ -4,7 +4,7 @@
   function seed(userId = 101) {
     return { generation: uuid(), name: 'あなた', published: true, solved: [], idorSeen: false,
       games: [{ id: 'seed-self', userId, score: 3200, solved: 2, answered: 3, bestStreak: 2, at: 1700000000000 },
-        { id: 'seed-guest', userId: 103, score: 1600, solved: 1, answered: 3, bestStreak: 1, at: 1700000000001 }],
+        { id: 'seed-guest', userId: Number.isInteger(userId) ? userId + 2 : 103, score: 1600, solved: 1, answered: 3, bestStreak: 1, at: 1700000000001 }],
       sqlSeen: false, xssTicket: null, secret: `NOTE-${uuid()}`, proof: `NAME-${uuid()}` };
   }
   function fail(status, message) { throw Object.assign(new Error(message), { status }); }
@@ -33,20 +33,20 @@
     state.published ??= true;
     const me = state.userId;
     if (!me) fail(500, 'ユーザーIDがありません。');
-    state.games.forEach(p => { if (p.userId === 101) p.userId = me; });
+
     const leaderboard = () => state.games.map(p => ({ ...p, name: p.userId === me ? state.name : 'ゲスト猫' }))
       .sort((a, b) => b.score - a.score || a.at - b.at).slice(0, 10);
     if (method === 'GET' && path === '/status') return { me, mode, generation: state.generation, solved: state.solved };
     if (method === 'POST' && path === '/reset') {
       Object.assign(state, seed(me), { userId: me }, state.participantName ? { name: state.participantName } : {});
-      state.games.forEach(p => { if (p.userId === 101) p.userId = me; });
+
       return { reset: true };
     }
     if (method === 'GET' && /^\/profiles\/[a-zA-Z0-9-]+$/.test(path)) {
       const requested = path.split('/').pop();
-      const id = requested === '102' ? 102 : requested;
-      if (![me, 102].includes(id) || (fixed && id !== me)) fail(404, 'マイページが見つかりません。');
-      if (id === 102) state.idorSeen = true;
+      const id = /^\d+$/.test(requested) ? Number(requested) : NaN;
+      if (![me, me + 1].includes(id) || (fixed && id !== me)) fail(404, 'マイページが見つかりません。');
+      if (id === me + 1) state.idorSeen = true;
       const history = id === me ? state.games.filter(p => p.userId === me).sort((a,b) => b.at - a.at)
         : [{ id: 'rival', score: 6400, solved: 3, answered: 4, bestStreak: 3, at: 1700000000000 }];
       return { id, name: id === me ? state.name : 'ライバル猫', published: id === me ? state.published : false, best: Math.max(0, ...history.map(p => p.score)),
@@ -77,7 +77,7 @@
       let rows;
       try { rows = await search(keyword, fixed); }
       catch { fail(400, '検索SQLを実行できませんでした。検索語の引用符と構文を確認してください。'); }
-      const found = rows.some(row => String(row.id) === '102' && row.published === 0);
+      const found = rows.some(row => Number(row.id) === me + 1 && row.published === 0);
       if (found && !fixed) state.sqlSeen = true;
       return { rows, ...(found && !fixed ? { evidence: state.proof } : {}) };
     }
