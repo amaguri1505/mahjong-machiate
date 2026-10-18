@@ -1,0 +1,7 @@
+{
+  "name": "gamemvp",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}

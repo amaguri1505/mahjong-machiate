@@ -7,25 +7,22 @@ const overlayTitle = document.getElementById("overlay-title");
 const overlayScore = document.getElementById("overlay-score");
 const restartBtn = document.getElementById("restart-btn");
 
-const GAME_SECONDS = 30;
-const PLAYER_SIZE = 24;
-const PLAYER_SPEED = 240; // px/sec
-const COIN_SIZE = 14;
-const COIN_COUNT = 8;
+const {
+  GAME_SECONDS,
+  PLAYER_SIZE,
+  COIN_SIZE,
+  inputDirection,
+  movePlayer,
+  collectCoins,
+  refillCoins,
+} = window.GameLogic;
 
 const keys = new Set();
 let player, coins, score, timeLeft, running, lastTime;
 
-function randCoin() {
-  return {
-    x: COIN_SIZE + Math.random() * (canvas.width - COIN_SIZE * 2),
-    y: COIN_SIZE + Math.random() * (canvas.height - COIN_SIZE * 2),
-  };
-}
-
 function reset() {
   player = { x: canvas.width / 2, y: canvas.height / 2 };
-  coins = Array.from({ length: COIN_COUNT }, randCoin);
+  coins = refillCoins([], canvas.width, canvas.height);
   score = 0;
   timeLeft = GAME_SECONDS;
   running = true;
@@ -44,34 +41,14 @@ function endGame() {
 }
 
 function update(dt) {
-  let dx = 0;
-  let dy = 0;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) dy -= 1;
-  if (keys.has("ArrowDown") || keys.has("KeyS")) dy += 1;
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) dx -= 1;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) dx += 1;
+  player = movePlayer(player, inputDirection(keys), dt, canvas.width, canvas.height);
 
-  if (dx !== 0 || dy !== 0) {
-    const len = Math.hypot(dx, dy);
-    player.x += (dx / len) * PLAYER_SPEED * dt;
-    player.y += (dy / len) * PLAYER_SPEED * dt;
+  const result = collectCoins(coins, player);
+  if (result.gained > 0) {
+    score += result.gained;
+    scoreEl.textContent = `Score: ${score}`;
   }
-
-  player.x = Math.max(PLAYER_SIZE / 2, Math.min(canvas.width - PLAYER_SIZE / 2, player.x));
-  player.y = Math.max(PLAYER_SIZE / 2, Math.min(canvas.height - PLAYER_SIZE / 2, player.y));
-
-  coins = coins.filter((coin) => {
-    const hit = Math.hypot(coin.x - player.x, coin.y - player.y) < (PLAYER_SIZE + COIN_SIZE) / 2;
-    if (hit) {
-      score += 10;
-      scoreEl.textContent = `Score: ${score}`;
-    }
-    return !hit;
-  });
-
-  while (coins.length < COIN_COUNT) {
-    coins.push(randCoin());
-  }
+  coins = refillCoins(result.coins, canvas.width, canvas.height);
 }
 
 function draw() {

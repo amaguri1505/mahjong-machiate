@@ -14,4 +14,14 @@
 
 - `index.html` — マークアップ
 - `style.css` — 見た目
-- `main.js` — ゲームロジック(Canvas 2D, ゲームループ)
+- `game-logic.js` — 描画に依存しないゲームロジック(移動・当たり判定・スコア)
+- `main.js` — 描画・入力・ゲームループ(Canvas 2D)
+- `game-logic.test.js` — ロジックのテスト
+
+## テスト
+
+```
+npm test
+```
+
+Node.js 標準のテストランナー(`node --test`)を使うため、依存パッケージのインストールは不要。
