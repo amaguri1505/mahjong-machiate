@@ -139,30 +139,6 @@ body {
   color: var(--gold);
 }
 
-.streak {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-}
-
-.pips {
-  display: inline-flex;
-  gap: 4px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-.pip {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid var(--muted);
-}
-
-.pip.on {
-  background: var(--gold);
-  border-color: var(--gold);
-}
-
 .hand {
   display: grid;
   grid-template-columns: repeat(13, minmax(0, 1fr));

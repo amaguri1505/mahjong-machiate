@@ -7,7 +7,6 @@ const scoreEl = $("score");
 const questionEl = $("question");
 const questionNoEl = $("question-no");
 const modeChip = $("mode-chip");
-const streakEl = $("streak");
 const handEl = $("hand");
 const paletteEl = $("palette");
 const lastResultEl = $("last-result");
@@ -81,18 +80,6 @@ function renderStatus() {
   scoreEl.textContent = formatPoints(score);
 }
 
-function renderStreak() {
-  if (L.modeForStreak(streak) === "chinitsu") {
-    streakEl.textContent = `連続正解 ${streak}`;
-    return;
-  }
-  const pips = Array.from(
-    { length: L.STREAK_FOR_CHINITSU },
-    (_, i) => `<span class="pip${i < streak ? " on" : ""}"></span>`
-  ).join("");
-  streakEl.innerHTML = `清一色まであと${L.STREAK_FOR_CHINITSU - streak}<span class="pips">${pips}</span>`;
-}
-
 function renderPalette() {
   paletteEl.innerHTML = "";
   paletteEl.classList.toggle("single", mode === "chinitsu");
@@ -115,7 +102,6 @@ function newQuestion() {
   questionNoEl.textContent = `第${questionNo}問`;
   modeChip.textContent = mode === "chinitsu" ? "清一色" : "普通の手";
   modeChip.classList.toggle("chinitsu", mode === "chinitsu");
-  renderStreak();
 
   handEl.innerHTML = "";
   hand.forEach((t) => handEl.appendChild(createTile(t)));

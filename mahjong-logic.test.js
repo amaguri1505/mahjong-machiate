@@ -210,10 +210,10 @@ test("generateHand: 清一色は1色のみで必ずテンパイ", () => {
   }
 });
 
-test("modeForStreak: 6問連続正解で清一色になる", () => {
+test("modeForStreak: 3問連続正解で清一色になる", () => {
   assert.equal(L.modeForStreak(0), "normal");
-  assert.equal(L.modeForStreak(5), "normal");
-  assert.equal(L.modeForStreak(6), "chinitsu");
+  assert.equal(L.modeForStreak(2), "normal");
+  assert.equal(L.modeForStreak(3), "chinitsu");
   assert.equal(L.modeForStreak(10), "chinitsu");
 });
 

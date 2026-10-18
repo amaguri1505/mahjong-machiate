@@ -16,7 +16,7 @@
   const GREEN_TILES = [19, 20, 21, 23, 25, GREEN]; // 2・3・4・6・8索と發
   const HONOR_NAMES = ["東", "南", "西", "北", "白", "發", "中"];
   const SUIT_LETTERS = ["m", "p", "s"];
-  const STREAK_FOR_CHINITSU = 6;
+  const STREAK_FOR_CHINITSU = 3;
   const GAME_SECONDS = 30;
 
   const isHonor = (t) => t >= 27;
