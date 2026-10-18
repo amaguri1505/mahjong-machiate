@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>麻雀 待ち当て｜セキュリティ演習版</title>
+  <meta name="claude:viewport-fit-sides" content="cover" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="workshop.css" />
+</head>
+<body>
+  <!-- 謎の猫（ナゾネコ）の絵柄。体の色は color、目や頬は --neko-* 変数で決まる -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <g id="neko-head-shape">
+        <path d="M21 44 17 8 45 26Z" />
+        <path d="M79 44 83 8 55 26Z" />
+        <ellipse cx="50" cy="47" rx="32" ry="26" />
+      </g>
+      <g id="neko-head">
+        <use href="#neko-head-shape" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 6; stroke-linejoin: round" />
+        <use href="#neko-head-shape" style="fill: currentColor; stroke: none" />
+        <path d="M25 33 23 17 36 26Z" style="fill: var(--neko-blush)" />
+        <path d="M75 33 77 17 64 26Z" style="fill: var(--neko-blush)" />
+        <path d="M46 27a6 6 0 1 0 8 8a5 5 0 1 1-8-8Z" style="fill: var(--neko-mark)" />
+        <ellipse cx="27" cy="58" rx="5.5" ry="3.2" style="fill: var(--neko-blush)" />
+        <ellipse cx="73" cy="58" rx="5.5" ry="3.2" style="fill: var(--neko-blush)" />
+        <g style="fill: none; stroke: var(--neko-ink); stroke-width: 2.2; stroke-linecap: round">
+          <path d="M44 58q3 4 6 0q3 4 6 0" />
+          <path d="M18 51l-10-2M18 56l-10 1M82 51l10-2M82 56l10 1" />
+        </g>
+        <path d="M47.5 53h5l-2.5 2.6Z" style="fill: var(--neko-ink)" />
+      </g>
+      <g id="neko-eyes-open">
+        <circle cx="38" cy="47" r="8.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+        <circle cx="62" cy="47" r="8.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+        <circle cx="40.5" cy="45" r="4" style="fill: var(--neko-ink)" />
+        <circle cx="64.5" cy="45" r="4" style="fill: var(--neko-ink)" />
+        <circle cx="39" cy="43.5" r="1.3" style="fill: var(--neko-eye)" />
+        <circle cx="63" cy="43.5" r="1.3" style="fill: var(--neko-eye)" />
+      </g>
+      <path id="neko-eyes-closed" d="M31 48q7 6 14 0M55 48q7 6 14 0" style="fill: none; stroke: var(--neko-ink); stroke-width: 2.6; stroke-linecap: round" />
+    </defs>
+
+    <!-- すわり -->
+    <symbol id="neko-sit" viewBox="0 0 104 104">
+      <path d="M68 94c22 2 30-18 20-30" style="fill: none; stroke: var(--neko-ink); stroke-width: 13; stroke-linecap: round" />
+      <path d="M68 94c22 2 30-18 20-30" style="fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round" />
+      <ellipse cx="50" cy="78" rx="26" ry="20" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 3" />
+      <ellipse cx="40" cy="96" rx="7" ry="4.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <ellipse cx="60" cy="96" rx="7" ry="4.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <use href="#neko-head" />
+      <use href="#neko-eyes-open" />
+    </symbol>
+
+    <!-- 枠のふちからのぞく顔と前足 -->
+    <symbol id="neko-peek" viewBox="0 4 100 74">
+      <use href="#neko-head" />
+      <use href="#neko-eyes-open" />
+      <ellipse cx="30" cy="72" rx="9" ry="5.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+      <ellipse cx="70" cy="72" rx="9" ry="5.5" style="fill: var(--neko-eye); stroke: var(--neko-ink); stroke-width: 2.4" />
+    </symbol>
+
+    <!-- ねむり -->
+    <symbol id="neko-sleep" viewBox="0 0 130 84">
+      <ellipse cx="74" cy="62" rx="44" ry="19" style="fill: currentColor; stroke: var(--neko-ink); stroke-width: 3" />
+      <path d="M112 66c10 12-20 16-42 12" style="fill: none; stroke: var(--neko-ink); stroke-width: 12; stroke-linecap: round" />
+      <path d="M112 66c10 12-20 16-42 12" style="fill: none; stroke: currentColor; stroke-width: 6.5; stroke-linecap: round" />
+      <g transform="translate(2 14) scale(0.74)">
+        <use href="#neko-head" />
+        <use href="#neko-eyes-closed" />
+      </g>
+      <text x="96" y="30" style="fill: var(--neko-ink); font: 700 16px sans-serif">z</text>
+      <text x="108" y="16" style="fill: var(--neko-ink); font: 700 12px sans-serif">z</text>
+    </symbol>
+
+    <!-- 肉球 -->
+    <symbol id="paw" viewBox="0 0 40 40">
+      <g style="fill: currentColor">
+        <ellipse cx="20" cy="27" rx="10" ry="8.5" />
+        <ellipse cx="8" cy="15" rx="4" ry="5" />
+        <ellipse cx="16" cy="8" rx="4" ry="5" />
+        <ellipse cx="25" cy="8" rx="4" ry="5" />
+        <ellipse cx="33" cy="15" rx="4" ry="5" />
+      </g>
+    </symbol>
+  </svg>
+
+  <!-- 背景にただよう猫と肉球（飾り） -->
+  <div class="bg-deco" aria-hidden="true">
+    <svg class="deco d1 neko lav"><use href="#neko-sit" /></svg>
+    <svg class="deco d2 paw-mark"><use href="#paw" /></svg>
+    <svg class="deco d3 neko mint"><use href="#neko-peek" /></svg>
+    <svg class="deco d4 paw-mark"><use href="#paw" /></svg>
+    <svg class="deco d5 neko yellow"><use href="#neko-sleep" /></svg>
+    <svg class="deco d6 paw-mark"><use href="#paw" /></svg>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <h1 class="brand"><svg class="neko night brand-neko" aria-hidden="true"><use href="#neko-sit" /></svg>待ち当て</h1>
+      <button type="button" class="howto-link" data-open-howto>遊び方</button>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">残り</span>
+          <span class="stat-value" id="timer">30.0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">点数</span>
+          <span class="stat-value" id="score">0</span>
+        </div>
+      </div>
+    </header>
+    <div class="timebar" aria-hidden="true"><span id="timebar-fill"></span></div>
+
+    <section class="question" id="question">
+      <svg class="neko pink peek-neko" aria-hidden="true"><use href="#neko-peek" /></svg>
+      <div class="question-head">
+        <span id="question-no">第1問</span>
+        <span class="mode-chip" id="mode-chip">普通の手</span>
+      </div>
+      <div class="hand" id="hand" aria-label="手牌"></div>
+    </section>
+
+    <section class="answer">
+      <p class="prompt">待ち牌をすべて選んで「決定」</p>
+      <div class="palette" id="palette"></div>
+      <div class="actions">
+        <button type="button" class="btn ghost" id="clear-btn">選択を解除</button>
+        <button type="button" class="btn primary" id="submit-btn">決定</button>
+      </div>
+      <p class="last-result" id="last-result" aria-live="polite" hidden></p>
+    </section>
+  </main>
+
+  <div class="overlay" id="start-overlay">
+    <div class="sheet">
+      <div class="hero">
+        <svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <p class="bubble">待ちはどこかにゃ…？</p>
+      </div>
+      <h2>麻雀 待ち当て</h2><p class="form-note">セキュリティ演習版 · 架空データ専用<br>麻雀をプレイしなくても、マイページ・ランキングから3問に取り組めます。</p>
+      <ul class="rules">
+        <li>持ち時間は<strong>30秒</strong>。テンパイした手牌の待ちを、すべて選んで答えます。</li>
+        <li>正解すると、一番高い待ち（高目）でツモ和了したときの点数が入ります。子・東場南家・ドラなしで計算します。</li>
+        <li><strong>3問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
+        <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
+      </ul>
+      <button type="button" class="link-btn" data-open-howto>麻雀の形がわからないときは「遊び方」へ</button>
+      <div class="account-slot" hidden></div>
+      <button type="button" class="btn primary" id="start-btn">はじめる</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="end-overlay" hidden>
+    <div class="sheet">
+      <div class="sheet-title">
+        <svg class="neko yellow title-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <h2>時間切れ</h2>
+        <p class="bubble small">おつかれにゃ</p>
+      </div>
+      <div class="account-slot" hidden></div>
+      <div class="final">
+        <p class="final-score"><span id="final-score">0</span>点</p>
+        <dl class="final-stats">
+          <div><dt>正解</dt><dd id="final-solved">0問</dd></div>
+          <div><dt>最高連続</dt><dd id="final-streak">0</dd></div>
+        </dl>
+      </div>
+
+      <form class="entry" id="entry-form">
+        <label for="player-name">名前を入れてランキングに登録</label>
+        <div class="entry-row">
+          <input id="player-name" name="player-name" type="text" autocomplete="nickname" placeholder="名無し" />
+          <button type="submit" class="btn primary" id="entry-btn">登録</button>
+        </div>
+        <p class="entry-status" id="entry-status" aria-live="polite"></p>
+      </form>
+      <p class="entry-status" id="online-status" aria-live="polite" hidden></p>
+
+      <section class="ranking">
+        <h3 id="ranking-title">ランキング</h3>
+        <ol class="ranking-list" id="ranking-list" hidden></ol><div id="game-ranking-host"></div>
+        <p class="ranking-empty" id="ranking-empty"><svg class="neko lav empty-neko" aria-hidden="true"><use href="#neko-sleep" /></svg>まだ記録がありません。最初の記録を登録しましょう。</p>
+      </section>
+
+      <details class="review">
+        <summary>今回の問題を振り返る</summary>
+        <ol class="review-list" id="review-list"></ol>
+      </details>
+
+      <button type="button" class="btn primary" id="restart-btn">もう一度</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="mypage-overlay" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mypage-title">
+      <div class="sheet-head">
+        <h2 id="mypage-title"><svg class="neko mint inline-neko" aria-hidden="true"><use href="#neko-peek" /></svg>マイページ</h2>
+        <button type="button" class="btn ghost small" id="mypage-close">閉じる</button>
+      </div>
+      <p class="form-note" id="mypage-email"></p><p id="profile" class="form-note"></p>
+
+      <dl class="my-stats">
+        <div><dt>最高点</dt><dd id="my-best">-</dd></div>
+        <div><dt>プレイ回数</dt><dd id="my-count">-</dd></div>
+        <div><dt>平均点</dt><dd id="my-average">-</dd></div>
+        <div><dt>正解率</dt><dd id="my-accuracy">-</dd></div>
+        <div><dt>最高連続</dt><dd id="my-streak">-</dd></div>
+      </dl>
+
+      <section class="ranking">
+        <h3>最近のプレイ</h3>
+        <ol class="ranking-list history-list" id="my-history"></ol>
+        <p class="ranking-empty" id="my-history-empty">読み込んでいます…</p>
+      </section>
+
+      <form class="entry" id="profile-form">
+        <label for="profile-name">表示名（ランキングに出ます）</label>
+        <div class="entry-row">
+          <input id="profile-name" type="text" autocomplete="nickname" placeholder="名無し" />
+          <button type="submit" class="btn primary" id="profile-btn">変更</button>
+        </div>
+        <p>保存前のプレビュー：<span id="preview"></span></p><p class="entry-status" id="profile-status" aria-live="polite"></p>
+      </form>
+
+      <section class="workshop-directory"><h3>登録者検索</h3><p class="form-note">掲載に同意した架空ユーザーの登録名を探します。ランキングのニックネームとは別です。</p>
+      <form id="search-form" class="entry"><label for="keyword">登録名</label><div class="entry-row"><input id="keyword" maxlength="160" placeholder="公開"><button class="btn primary">検索</button></div></form><ul id="search-results"></ul><p id="search-evidence" class="form-note"></p></section>
+      <button type="button" class="btn ghost" data-workshop-ranking>ランキングを見る</button>
+      <details class="form-note"><summary>比較・リセット</summary><div class="workshop-toolbar"><label>比較モード <select id="mode"><option value="vulnerable">弱点版</option><option value="fixed">修正版</option></select></label><button type="button" id="reset" class="btn ghost small">このモードをリセット</button></div></details>
+      <button type="button" class="btn ghost" id="logout-btn">退室</button>
+    </div>
+  </div>
+
+  <!-- 遊び方（図解）。[data-tiles] の中身は main.js が牌の絵で埋める -->
+  <div class="overlay" id="howto-overlay" hidden>
+    <div class="sheet howto" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+      <div class="sheet-head">
+        <h2 id="howto-title">遊び方</h2>
+        <button type="button" class="btn ghost small" id="howto-close">閉じる</button>
+      </div>
+      <div class="hero">
+        <svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
+        <p class="bubble">ナゾネコの<br />麻雀教室にゃ</p>
+      </div>
+
+      <section class="lesson">
+        <h3><span class="step">1</span>アガリの形は「4メンツ＋1雀頭」</h3>
+        <p>3枚1組の<strong>メンツ</strong>を4つと、同じ牌2枚の<strong>雀頭（アタマ）</strong>を1つ。合わせて14枚でアガリです。</p>
+        <div class="tile-row">
+          <figure class="group"><span class="howto-tiles" data-tiles="123m"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="456p"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="789s"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group"><span class="howto-tiles" data-tiles="777z"></span><figcaption>メンツ</figcaption></figure>
+          <figure class="group head"><span class="howto-tiles" data-tiles="11z"></span><figcaption>雀頭</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">2</span>メンツは2種類</h3>
+        <dl class="kinds">
+          <div>
+            <dt>順子（シュンツ）</dt>
+            <dd>同じ色の数字が3つ続く</dd>
+            <dd class="howto-tiles" data-tiles="345p"></dd>
+          </div>
+          <div>
+            <dt>刻子（コーツ）</dt>
+            <dd>まったく同じ牌が3枚</dd>
+            <dd class="howto-tiles" data-tiles="222m"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">3</span>つながらない並び</h3>
+        <ul class="judge">
+          <li class="ok"><span class="howto-tiles" data-tiles="789m"></span><span>7・8・9 は順子</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="8m 9m 1m"></span><span>9 の次は 1 に戻らない。1 と 9 はつながらない</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="3m4p5s"></span><span>色がちがうとつながらない</span></li>
+          <li class="ng"><span class="howto-tiles" data-tiles="123z"></span><span>字牌は横につながらない（東南西も順子にならない）</span></li>
+          <li class="ok"><span class="howto-tiles" data-tiles="666z"></span><span>字牌は同じ牌を3枚（刻子）か2枚（雀頭）で使う</span></li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">4</span>「待ち」とは</h3>
+        <p>出題は13枚。<strong>あと1枚で4メンツ＋1雀頭になる牌</strong>が「待ち」です。待ちが2種類以上あるときは、全部選んで「決定」。</p>
+        <div class="tile-row">
+          <span class="howto-tiles" data-tiles="123m456p789s11z"></span>
+          <span class="howto-tiles" data-tiles="34s"></span><span class="ghost-tile" aria-label="待ち">?</span>
+        </div>
+        <p class="answer-line">答え <span class="howto-tiles" data-tiles="25s"></span><span>（2索・5索のどちらでもアガリ）</span></p>
+      </section>
+
+      <section class="lesson">
+        <h3><span class="step">5</span>待ちの形いろいろ</h3>
+        <ul class="judge shapes">
+          <li><span class="name">両面</span><span class="howto-tiles" data-tiles="34s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="25s"></span></li>
+          <li><span class="name">嵌張</span><span class="howto-tiles" data-tiles="46s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="5s"></span><span class="note">間の1枚</span></li>
+          <li><span class="name">辺張</span><span class="howto-tiles" data-tiles="12s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="3s"></span><span class="note">9 はつながらないので 3 だけ</span></li>
+          <li><span class="name">双碰</span><span class="howto-tiles" data-tiles="1177z"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="17z"></span><span class="note">どちらかが刻子になる</span></li>
+          <li><span class="name">単騎</span><span class="howto-tiles" data-tiles="5s"></span><span class="arrow">→</span><span class="howto-tiles" data-tiles="5s"></span><span class="note">同じ牌で雀頭を作る</span></li>
+        </ul>
+        <p class="form-note">ほかに、同じ牌2枚の組を7つ作る「七対子」や、1・9・字牌を1枚ずつ集める「国士無双」という特別な形もあります。手牌で4枚とも使っている牌は待ちになりません。</p>
+      </section>
+
+      <button type="button" class="btn primary" id="howto-done">わかった！</button>
+    </div>
+  </div>
+
+
+  <div class="overlay workshop-top" id="entry"><div class="sheet">
+    <div class="hero"><svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg><p class="bubble">いっしょに一局、どう？</p></div>
+    <h2>麻雀 待ち当て</h2><p class="form-note">30秒で、いくつ見つけられるかな？<br>名前を登録して、自己ベストに挑戦しよう。</p>
+    <form id="login" class="form"><label class="field">参加者名<input id="participant-name" maxlength="40" autocomplete="nickname" placeholder="ニックネーム" required></label><label class="field">参加コード<input id="code" autocomplete="off" required></label><button class="btn primary">参加する</button></form>
+    <p class="form-note">招待された方だけが参加できるゲームです。名前にはニックネームを使ってください。</p></div></div>
+  <div class="overlay" id="ranking-overlay" hidden><div class="sheet"><div class="sheet-head"><h2>ランキング 上位10件</h2><button id="ranking-close" class="btn ghost small">閉じる</button></div><p class="form-note">ゲーム終了時に記録した得点と、保存した表示名が反映されます。初期データがあるのでプレイせずに演習もできます。</p><div id="standalone-ranking-host"></div><button id="reload-ranking" class="btn ghost">再取得</button></div></div>
+  <div id="frame-parking" hidden><iframe id="ranking-frame" title="ゲームのランキング・演習用表示領域" sandbox="allow-scripts" src="ranking-frame.html"></iframe></div>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <script src="mahjong-logic.js"></script>
+  <script src="tile-art.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="ranking.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

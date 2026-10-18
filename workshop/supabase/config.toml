@@ -1,0 +1,6 @@
+# 通常版のsupabaseディレクトリとは独立したCLI作業ディレクトリ。
+project_id = "mahjong-security-workshop"
+
+[functions.workshop]
+# 教材独自の短期セッションを関数内で検証する。無認証APIではない。
+verify_jwt = false
