@@ -495,13 +495,7 @@ body {
   color: var(--man);
 }
 
-/* 白は無地。枠だけ描く */
-.tile[data-honor="4"] .glyph {
-  width: 56%;
-  height: 62%;
-  border: max(1px, 5cqw) solid var(--pin);
-  border-radius: 6%;
-}
+/* 白は日本の麻雀牌と同じく何も描かない（.glyph は空のまま） */
 
 /* ---- 回答 ---- */
 .answer {
