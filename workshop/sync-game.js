@@ -6,7 +6,7 @@ const publicDir = path.join(__dirname, 'public');
 for (const file of ['main.js', 'mahjong-logic.js', 'tile-art.js', 'ranking.js', 'style.css']) {
   fs.copyFileSync(path.join(root, file), path.join(publicDir, file));
 }
-let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+let html = fs.readFileSync(path.join(__dirname, 'game-template.html'), 'utf8');
 function replace(from, to) {
   if (!html.includes(from)) throw new Error(`元ゲームの差分を確認してください: ${from.slice(0, 80)}`);
   html = html.replace(from, to);

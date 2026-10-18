@@ -7,8 +7,12 @@ type Lab = { id: string; code: string; schema: string; readUrl: string; writeUrl
 const labs: Lab[] = JSON.parse(Deno.env.get('WORKSHOP_LABS') || '[]');
 const origin = Deno.env.get('WORKSHOP_ORIGIN') || '';
 const secret = Deno.env.get('WORKSHOP_SESSION_SECRET') || '';
-const frontend = new URL(origin);
-if (frontend.origin !== origin || (frontend.protocol !== 'https:' && origin !== 'http://127.0.0.1:4173') || secret.length < 32 || !labs.length) throw new Error('演習専用の環境変数を設定してください。');
+const origins: string[] = JSON.parse(Deno.env.get('WORKSHOP_ORIGINS') || JSON.stringify([origin]));
+if (!origins.length || secret.length < 32 || !labs.length) throw new Error('演習専用の環境変数を設定してください。');
+for (const allowed of origins) {
+  const frontend = new URL(allowed);
+  if (frontend.origin !== allowed || (frontend.protocol !== 'https:' && allowed !== 'http://127.0.0.1:4173')) throw new Error('許可オリジンを確認してください。');
+}
 if (new Set(labs.map(l => l.code)).size !== labs.length || new Set(labs.map(l => l.schema)).size !== labs.length ||
     new Set(labs.map(l => l.id)).size !== labs.length) throw new Error('領域・参加コードは重複できません。');
 for (const lab of labs) {
@@ -44,15 +48,17 @@ function client(url: string) {
   return clients.get(url)!;
 }
 Deno.serve(async request => {
+  const requestedOrigin = request.headers.get('Origin');
+  const responseOrigin = requestedOrigin && origins.includes(requestedOrigin) ? requestedOrigin : origins[0];
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': origin, 'Vary': 'Origin', 'Access-Control-Allow-Headers': 'authorization, content-type, priority',
+    'Access-Control-Allow-Origin': responseOrigin, 'Vary': 'Origin', 'Access-Control-Allow-Headers': 'authorization, content-type, priority',
     // DevToolsのCopy as fetchがcredentials: includeを付けても再送できるようにする。
-    // 許可元は設定した単一オリジンのみ。認証には引き続きBearerセッションを使う。
+    // 許可元は設定したオリジンのみ。認証には引き続きBearerセッションを使う。
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
   const reply = (code: number, body: unknown) => new Response(JSON.stringify(body), { status: code, headers });
   try {
-    if (request.headers.get('Origin') && request.headers.get('Origin') !== origin) fail(403, '演習サイトから操作してください。');
+    if (requestedOrigin && !origins.includes(requestedOrigin)) fail(403, '演習サイトから操作してください。');
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     const url = new URL(request.url);
     const path = url.pathname.replace(/^.*\/workshop/, '');

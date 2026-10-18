@@ -175,3 +175,10 @@ Supabase版はスキーマ内の `state` に `(participant_id, mode)` をキー�
 `202610180003_users.sql` 適用後、初回登録では各スキーマの `users` に固有UUID・参加者ID・登録名・作成日時を保存します。`state.participant_id` は外部キーでユーザーに紐づきます。登録と両モードの状態作成は同一トランザクションです。既存参加者もレコードを作成して移行し、既存セッション・進捗を保持します。
 
 `/status` の `me` が本人の固有IDです。フロントは `/profiles/{me}` を取得し、プレイ記録にも同じIDを使います。`202610180004_profile_numbers.sql` により、プロフィールIDは各スキーマで101から始まる連番（users.profile_id）になりました。内部のusers.idと署名セッションの参加者IDはUUIDのままです。ライバルのプロフィールIDは本人+1です。例えば本人101なら102、本人108なら109を使います。同じ番号が別の実参加者に割り当てられていても、APIは常に現在の演習領域の架空ライバルだけを返します。修正版は本人以外を拒否します。採番はDBのIDENTITYを使うため、取り消した登録などで欠番が生じる場合があります。users表は検索用readerから読み取れません。登録名と、モード別に変更できる表示名は区別しています。
+
+
+## GitHub Pages（このブランチ）
+
+Settings → Pages は `Deploy from a branch`、`feature/security-workshop`、`/(root)` のままで利用します。ルートのindex.htmlは `workshop/public/` へ転送します。元のHTMLは `workshop/game-template.html` に保存し、sync-game.jsはそこから演習画面を生成します。
+
+公開サイトではconfig.jsが演習専用Supabaseを指定します。ローカル版の `/api` と `node workshop/server.js --supabase` も維持しています。Edge Functionの `WORKSHOP_ORIGINS` はJSON配列で、`https://amaguri1505.github.io` と `http://127.0.0.1:4173` を許可しています。設定がない場合は従来のWORKSHOP_ORIGINを使用します。

@@ -1,3 +1,5 @@
-// ローカルは変更不要。Supabase利用時は専用Edge Functionの公開URLだけを設定する。
-// DB接続文字列、参加コード、secret/service_roleキーをここへ置かない。
-window.WORKSHOP_API = '/api';
+// ローカルサーバーでは /api、それ以外は演習専用Supabaseへ接続する。
+// DB資格情報や参加コードは配信しない。
+window.WORKSHOP_API = location.hostname === '127.0.0.1' || location.hostname === 'localhost'
+  ? '/api'
+  : 'https://xroxdmybbpxulqgezvnh.supabase.co/functions/v1/workshop';
