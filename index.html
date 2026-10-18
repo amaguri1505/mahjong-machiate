@@ -27,7 +27,7 @@
     </header>
     <div class="timebar" aria-hidden="true"><span id="timebar-fill"></span></div>
 
-    <section class="question">
+    <section class="question" id="question">
       <div class="question-head">
         <span id="question-no">第1問</span>
         <span class="mode-chip" id="mode-chip">普通の手</span>
@@ -37,14 +37,13 @@
     </section>
 
     <section class="answer">
-      <p class="prompt" id="prompt">待ち牌をすべて選んで「決定」</p>
+      <p class="prompt">待ち牌をすべて選んで「決定」</p>
       <div class="palette" id="palette"></div>
-      <div class="reveal" id="reveal" hidden></div>
       <div class="actions">
         <button type="button" class="btn ghost" id="clear-btn">選択を解除</button>
         <button type="button" class="btn primary" id="submit-btn">決定</button>
-        <button type="button" class="btn primary" id="next-btn" hidden>次の問題</button>
       </div>
+      <p class="last-result" id="last-result" aria-live="polite" hidden></p>
     </section>
   </main>
 
@@ -55,7 +54,7 @@
         <li>持ち時間は<strong>30秒</strong>。テンパイした手牌の待ちを、すべて選んで答えます。</li>
         <li>正解すると、一番高い待ち（高目）でツモ和了したときの点数が入ります。子・東場南家・ドラなしで計算します。</li>
         <li><strong>6問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
-        <li>答え合わせの間は時計が止まります。</li>
+        <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
       </ul>
       <button type="button" class="btn primary" id="start-btn">はじめる</button>
     </div>
@@ -64,16 +63,40 @@
   <div class="overlay" id="end-overlay" hidden>
     <div class="sheet">
       <h2>時間切れ</h2>
-      <p class="final-score"><span id="final-score">0</span>点</p>
-      <dl class="final-stats">
-        <div><dt>正解</dt><dd id="final-solved">0問</dd></div>
-        <div><dt>最高連続</dt><dd id="final-streak">0</dd></div>
-      </dl>
+      <div class="final">
+        <p class="final-score"><span id="final-score">0</span>点</p>
+        <dl class="final-stats">
+          <div><dt>正解</dt><dd id="final-solved">0問</dd></div>
+          <div><dt>最高連続</dt><dd id="final-streak">0</dd></div>
+        </dl>
+      </div>
+
+      <form class="entry" id="entry-form">
+        <label for="player-name">名前を入れてランキングに登録</label>
+        <div class="entry-row">
+          <input id="player-name" name="player-name" type="text" autocomplete="nickname" placeholder="名無し" />
+          <button type="submit" class="btn primary" id="entry-btn">登録</button>
+        </div>
+        <p class="entry-status" id="entry-status" aria-live="polite"></p>
+      </form>
+
+      <section class="ranking">
+        <h3 id="ranking-title">ランキング</h3>
+        <ol class="ranking-list" id="ranking-list"></ol>
+        <p class="ranking-empty" id="ranking-empty">まだ記録がありません。最初の記録を登録しましょう。</p>
+      </section>
+
+      <details class="review">
+        <summary>今回の問題を振り返る</summary>
+        <ol class="review-list" id="review-list"></ol>
+      </details>
+
       <button type="button" class="btn primary" id="restart-btn">もう一度</button>
     </div>
   </div>
 
   <script src="mahjong-logic.js"></script>
+  <script src="ranking.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

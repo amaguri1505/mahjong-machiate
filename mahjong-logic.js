@@ -376,6 +376,32 @@
     return a.length === waits.length && a.every((t, i) => t === waits[i]);
   }
 
+  // 結果の1行表示用に役名を短くまとめる（門前清自摸和は常に付くので省く）。
+  function summarizeYaku(score) {
+    const names = score.yaku.map((y) => y.name).filter((n) => n !== "門前清自摸和");
+    return names.length > 0 ? names.join("・") : "ツモのみ";
+  }
+
+  // ---- ランキング ----
+
+  const NAME_MAX_LENGTH = 12;
+
+  // 前後の空白と改行を除き、長すぎる名前は切り詰める。空なら「名無し」。
+  function sanitizeName(name) {
+    const cleaned = String(name ?? "").replace(/\s+/g, " ").trim();
+    return [...cleaned].slice(0, NAME_MAX_LENGTH).join("") || "名無し";
+  }
+
+  // 点数の高い順。同点なら先に記録した方を上にする。
+  function sortRanking(entries) {
+    return entries.slice().sort((a, b) => b.score - a.score || a.at - b.at);
+  }
+
+  // 記録済みの entries の中で score が何位になるか（1始まり）。同点なら先に記録した方が上。
+  function rankForScore(entries, score) {
+    return entries.filter((e) => e.score >= score).length + 1;
+  }
+
   const MahjongLogic = {
     TILE_KINDS,
     STREAK_FOR_CHINITSU,
@@ -392,6 +418,11 @@
     generateHand,
     modeForStreak,
     isCorrectAnswer,
+    summarizeYaku,
+    NAME_MAX_LENGTH,
+    sanitizeName,
+    sortRanking,
+    rankForScore,
   };
 
   if (typeof module !== "undefined" && module.exports) {

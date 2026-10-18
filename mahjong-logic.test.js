@@ -224,3 +224,36 @@ test("isCorrectAnswer: 過不足なく選んだときだけ正解", () => {
   assert.equal(L.isCorrectAnswer(P("1s4s7s"), waits), false);
   assert.equal(L.isCorrectAnswer([], waits), false);
 });
+
+test("summarizeYaku: 門前清自摸和を省いて役名をつなぐ", () => {
+  const pinfu = L.scoreWin(P("234m567p456s23s88p"), P("4s")[0]);
+  assert.equal(L.summarizeYaku(pinfu), "平和・断么九");
+  const tsumoOnly = L.scoreWin(P("13m456p789s234s55p"), P("2m")[0]);
+  assert.equal(L.summarizeYaku(tsumoOnly), "ツモのみ");
+});
+
+// ---- ランキング ----
+
+test("sanitizeName: 空白を整え、長すぎる名前は切り詰め、空なら名無し", () => {
+  assert.equal(L.sanitizeName("  さとし \n"), "さとし");
+  assert.equal(L.sanitizeName("あいうえおかきくけこさしすせそ"), "あいうえおかきくけこさし");
+  assert.equal(L.sanitizeName("   "), "名無し");
+  assert.equal(L.sanitizeName(undefined), "名無し");
+});
+
+test("rankForScore: 同点の既存記録より下に入る", () => {
+  const entries = [{ score: 8000 }, { score: 2700 }, { score: 1500 }];
+  assert.equal(L.rankForScore(entries, 9000), 1);
+  assert.equal(L.rankForScore(entries, 2700), 3);
+  assert.equal(L.rankForScore(entries, 0), 4);
+  assert.equal(L.rankForScore([], 1500), 1);
+});
+
+test("sortRanking: 点数の高い順、同点は先に記録した方が上", () => {
+  const sorted = L.sortRanking([
+    { name: "A", score: 1500, at: 1 },
+    { name: "B", score: 8000, at: 3 },
+    { name: "C", score: 8000, at: 2 },
+  ]);
+  assert.deepEqual(sorted.map((e) => e.name), ["C", "B", "A"]);
+});
