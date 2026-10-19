@@ -148,10 +148,11 @@ Deno.serve(async request => {
           return await reader.begin('read only', async read => {
             await read`set local statement_timeout = '1000ms'`;
             // 公開表示名のスナップショットをバインドし、readerへのusers/state権限は追加しない。
+            // postgresのJSONパラメーターを使い、JSON.stringifyによる二重変換を避ける。
             const source = `with users as (select (id + $2::int - 101)::text as id, name, published from "${lab.schema}".directory where published = 0 union all select id::text, name, published from jsonb_to_recordset($1::jsonb) as t(id int, name text, published int)) `;
-            if (fixed) return await read.unsafe(source + 'select id, name, published from users where published = 1 and name like $3 limit 50', [JSON.stringify(directory), state.userId, '%' + keyword + '%'], { prepare: false });
+            if (fixed) return await read.unsafe(source + 'select id, name, published from users where published = 1 and name like $3 limit 50', [read.json(directory), state.userId, '%' + keyword + '%'], { prepare: false });
             // 意図したSQLi。連結する入力は演習の検索語のみ。
-            return await read.unsafe(source + `select id, name, published from users where published = 1 and name like '%${keyword}%' limit 50`, [JSON.stringify(directory), state.userId], { prepare: false });
+            return await read.unsafe(source + `select id, name, published from users where published = 1 and name like '%${keyword}%' limit 50`, [read.json(directory), state.userId], { prepare: false });
           });
         } });
       await sql`update ${sql(lab.schema)}.users set games = ${sql.json(state.games)} where participant_id = ${participant}`;
