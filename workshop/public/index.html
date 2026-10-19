@@ -99,7 +99,10 @@
   <main class="app">
     <header class="topbar">
       <h1 class="brand"><svg class="neko night brand-neko" aria-hidden="true"><use href="#neko-sit" /></svg>待ち当て</h1>
-      <button type="button" class="howto-link" data-open-howto>遊び方</button>
+      <div class="game-actions">
+        <button type="button" class="howto-link" id="interrupt-btn" hidden>中断</button>
+        <button type="button" class="howto-link" data-open-howto>遊び方</button>
+      </div>
       <div class="stats">
         <div class="stat">
           <span class="stat-label">残り</span>
@@ -139,14 +142,14 @@
         <svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg>
         <p class="bubble">待ちはどこかにゃ…？</p>
       </div>
-      <h2>麻雀 待ち当て</h2><p class="form-note">セキュリティ演習版 · 架空データ専用<br>麻雀をプレイしなくても、マイページ・ランキングから3問に取り組めます。</p>
+      <h2>麻雀 待ち当て</h2>
       <ul class="rules">
         <li>持ち時間は<strong>30秒</strong>。テンパイした手牌の待ちを、すべて選んで答えます。</li>
         <li>正解すると、一番高い待ち（高目）でツモ和了したときの点数が入ります。子・東場南家・ドラなしで計算します。</li>
         <li><strong>3問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
         <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
       </ul>
-      <button type="button" class="link-btn" data-open-howto>麻雀の形がわからないときは「遊び方」へ</button>
+      <button type="button" class="btn ghost" data-open-howto>遊び方</button>
       <div class="account-slot" hidden></div>
       <button type="button" class="btn primary" id="start-btn">はじめる</button>
     </div>
@@ -199,7 +202,7 @@
         <h2 id="mypage-title"><svg class="neko mint inline-neko" aria-hidden="true"><use href="#neko-peek" /></svg>マイページ</h2>
         <button type="button" class="btn ghost small" id="mypage-close">閉じる</button>
       </div>
-      <p class="form-note" id="mypage-email"></p><p id="profile" class="form-note"></p>
+      <p class="form-note" id="mypage-email"></p>
 
       <dl class="my-stats">
         <div><dt>最高点</dt><dd id="my-best">-</dd></div>
@@ -219,16 +222,21 @@
         <label for="profile-name">表示名（ランキングに出ます）</label>
         <div class="entry-row">
           <input id="profile-name" type="text" autocomplete="nickname" placeholder="名無し" />
-          <button type="submit" class="btn primary" id="profile-btn">変更</button>
+          <button type="submit" class="btn primary" id="profile-btn">保存</button>
         </div>
+        <label class="publication-toggle" for="profile-published">
+          <span>登録者検索・ランキングへの公開</span>
+          <input id="profile-published" type="checkbox" role="switch" aria-describedby="publication-help" checked />
+          <span id="publication-state">公開</span>
+        </label>
+        <p id="publication-help" class="form-note">「保存」で反映されます。非公開にすると登録者検索・ランキングに表示されません。得点は保存され、公開に戻すと再び掲載されます。</p>
         <p>保存前のプレビュー：<span id="preview"></span></p><p class="entry-status" id="profile-status" aria-live="polite"></p>
       </form>
 
-      <section class="workshop-directory"><h3>登録者検索</h3><p class="form-note">掲載に同意した架空ユーザーの登録名を探します。ランキングのニックネームとは別です。</p>
-      <form id="search-form" class="entry"><label for="keyword">登録名</label><div class="entry-row"><input id="keyword" maxlength="160" placeholder="公開"><button class="btn primary">検索</button></div></form><ul id="search-results"></ul><p id="search-evidence" class="form-note"></p></section>
+      <section class="workshop-directory"><h3>登録者検索</h3>
+      <form id="search-form" class="entry"><div class="entry-row"><input aria-label="検索キーワード" id="keyword" maxlength="160" placeholder="名前で検索"><button class="btn primary">検索</button></div></form><ul id="search-results" tabindex="0" aria-label="検索結果"></ul><p id="search-evidence" class="form-note"></p></section>
       <button type="button" class="btn ghost" data-workshop-ranking>ランキングを見る</button>
-      <details class="form-note"><summary>比較・リセット</summary><div class="workshop-toolbar"><label>比較モード <select id="mode"><option value="vulnerable">弱点版</option><option value="fixed">修正版</option></select></label><button type="button" id="reset" class="btn ghost small">このモードをリセット</button></div></details>
-      <button type="button" class="btn ghost" id="logout-btn">退室</button>
+      <button type="button" class="btn ghost" id="logout-btn">ログアウト</button>
     </div>
   </div>
 
@@ -311,12 +319,12 @@
 
 
   <div class="overlay workshop-top" id="entry"><div class="sheet">
-    <div class="hero"><svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg><p class="bubble">いっしょに一局、どう？</p></div>
-    <h2>麻雀 待ち当て</h2><p class="form-note">30秒で、いくつ見つけられるかな？<br>名前を登録して、自己ベストに挑戦しよう。</p>
-    <form id="login" class="form"><label class="field">参加者名<input id="participant-name" maxlength="40" autocomplete="nickname" placeholder="ニックネーム" required></label><label class="field">参加コード<input id="code" autocomplete="off" required></label><button class="btn primary">参加する</button></form>
-    <p class="form-note">招待された方だけが参加できるゲームです。名前にはニックネームを使ってください。</p></div></div>
-  <div class="overlay" id="ranking-overlay" hidden><div class="sheet"><div class="sheet-head"><h2>ランキング 上位10件</h2><button id="ranking-close" class="btn ghost small">閉じる</button></div><p class="form-note">ゲーム終了時に記録した得点と、保存した表示名が反映されます。初期データがあるのでプレイせずに演習もできます。</p><div id="standalone-ranking-host"></div><button id="reload-ranking" class="btn ghost">再取得</button></div></div>
-  <div id="frame-parking" hidden><iframe id="ranking-frame" title="ゲームのランキング・演習用表示領域" sandbox="allow-scripts" src="ranking-frame.html"></iframe></div>
+    <div class="hero"><svg class="neko night hero-neko" aria-hidden="true"><use href="#neko-sit" /></svg><p class="bubble">麻雀って楽しいよね</p></div>
+    <h2>麻雀 待ち当て</h2>
+    <form id="login" class="form"><label class="field">参加者名<input id="participant-name" maxlength="40" autocomplete="nickname" placeholder="ニックネーム" required></label><label class="field">参加コード<input id="code" autocomplete="off" required></label><button class="btn primary">新しく参加する</button></form>
+    </div></div>
+  <div class="overlay" id="ranking-overlay" hidden><div class="sheet"><div class="sheet-head"><h2>ランキング 上位10件</h2><button id="ranking-close" class="btn ghost small">閉じる</button></div><p class="form-note">同じ参加グループのユーザーごとに最高点を1件掲載します。ログアウト後も記録は残ります。</p><div id="standalone-ranking-host"></div><button id="reload-ranking" class="btn ghost">再取得</button></div></div>
+  <div id="frame-parking" hidden><iframe id="ranking-frame" title="ゲームのランキング・演習用表示領域" sandbox="allow-scripts allow-same-origin" src="ranking-frame.html"></iframe></div>
   <p id="notice" role="status" aria-live="polite"></p>
   <script src="mahjong-logic.js"></script>
   <script src="tile-art.js"></script>

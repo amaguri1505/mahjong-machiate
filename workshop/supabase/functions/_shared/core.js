@@ -3,8 +3,7 @@
   const uuid = () => crypto.randomUUID();
   function seed(userId = 101) {
     return { generation: uuid(), name: 'あなた', published: true, solved: [], idorSeen: false,
-      games: [{ id: 'seed-self', userId, score: 3200, solved: 2, answered: 3, bestStreak: 2, at: 1700000000000 },
-        { id: 'seed-guest', userId: Number.isInteger(userId) ? userId + 2 : 103, score: 1600, solved: 1, answered: 3, bestStreak: 1, at: 1700000000001 }],
+      games: [],
       sqlSeen: false, xssTicket: null, secret: `NOTE-${uuid()}`, proof: `NAME-${uuid()}` };
   }
   function fail(status, message) { throw Object.assign(new Error(message), { status }); }
@@ -26,31 +25,42 @@
   }
   function solved(state, id) { if (!state.solved.includes(id)) state.solved.push(id); }
   // bodyのlab_idやuser_idは認証主体の決定に使用しない。
-  async function dispatch({ method, path, query, body, state, search, mode }) {
+  async function dispatch({ method, path, query, body, state, search, getProfile, getLeaderboard, mode }) {
     const fixed = mode === 'fixed';
     // 旧版の教材状態を読み込んだ場合も、ゲーム記録を追加できる。
-    state.games ||= seed().games;
+    state.games = (state.games || []).filter(p => p.id !== 'seed-self' && p.id !== 'seed-guest');
     state.published ??= true;
     const me = state.userId;
     if (!me) fail(500, 'ユーザーIDがありません。');
 
-    const leaderboard = () => state.games.map(p => ({ ...p, name: p.userId === me ? state.name : 'ゲスト猫' }))
-      .sort((a, b) => b.score - a.score || a.at - b.at).slice(0, 10);
+    const leaderboard = async () => {
+      const seen = new Set();
+      const games = getLeaderboard ? await getLeaderboard() : state.games;
+      return [...games].filter(p => p.userId !== me || state.published !== false).sort((a, b) => b.score - a.score || a.at - b.at)
+        .filter(p => {
+          if (seen.has(p.userId)) return false;
+          seen.add(p.userId);
+          return true;
+        }).slice(0, 10)
+        .map(p => ({ ...p, name: p.userId === me ? state.name : (p.name || 'ゲスト猫') }));
+    };
     if (method === 'GET' && path === '/status') return { me, mode, generation: state.generation, solved: state.solved };
     if (method === 'POST' && path === '/reset') {
-      Object.assign(state, seed(me), { userId: me }, state.participantName ? { name: state.participantName } : {});
+      Object.assign(state, seed(me), { userId: me, games: state.games }, state.participantName ? { name: state.participantName } : {});
 
       return { reset: true };
     }
     if (method === 'GET' && /^\/profiles\/[a-zA-Z0-9-]+$/.test(path)) {
       const requested = path.split('/').pop();
       const id = /^\d+$/.test(requested) ? Number(requested) : NaN;
-      if (![me, me + 1].includes(id) || (fixed && id !== me)) fail(404, 'マイページが見つかりません。');
-      if (id === me + 1) state.idorSeen = true;
-      const history = id === me ? state.games.filter(p => p.userId === me).sort((a,b) => b.at - a.at)
-        : [{ id: 'rival', score: 6400, solved: 3, answered: 4, bestStreak: 3, at: 1700000000000 }];
-      return { id, name: id === me ? state.name : 'ライバル猫', published: id === me ? state.published : false, best: Math.max(0, ...history.map(p => p.score)),
-        plays: history.length, history, memo: id === me ? '明日は練習しよう。' : `本人限定の練習メモ：${state.secret}` };
+      if (!Number.isSafeInteger(id) || (fixed && id !== me)) fail(404, 'マイページが見つかりません。');
+      const profile = id === me ? state : await getProfile?.(id);
+      if (!profile) fail(404, 'マイページが見つかりません。');
+      if (id !== me) state.idorSeen = true;
+      const history = (profile.games || []).filter(p => p.userId === id && p.id !== 'seed-self' && p.id !== 'seed-guest').sort((a,b) => b.at - a.at);
+      return { id, name: profile.name, published: profile.published !== false, best: Math.max(0, ...history.map(p => p.score)),
+        plays: history.length, history, memo: profile.memo || '明日は練習しよう。',
+        ...(id !== me ? { evidence: state.secret } : {}) };
     }
     if (method === 'POST' && path === '/plays') {
       if (body.generation !== state.generation) fail(409, 'リセット後のプレイは保存できません。');
@@ -59,11 +69,9 @@
           bestStreak < 0 || bestStreak > solved || score < 0 || score > solved * 128000) fail(400, 'プレイ記録の値が不正です。');
       const play = { id: uuid(), userId: me, score, solved, answered, bestStreak, at: Date.now() };
       state.games.push(play);
-      // 教材状態の無制限な増加を防ぐ。集計対象は直近1000プレイ。
-      state.games = state.games.slice(-1000);
       return { id: play.id };
     }
-    if (method === 'GET' && path === '/leaderboard') return { rows: leaderboard() };
+    if (method === 'GET' && path === '/leaderboard') return { rows: await leaderboard() };
     if (method === 'POST' && path === '/profile') {
       if (body.generation !== state.generation) fail(409, 'リセット後の画面を開き直してください。');
       if (body.published !== undefined && typeof body.published !== 'boolean') fail(400, '公開設定はtrueまたはfalseで指定してください。');
@@ -83,7 +91,10 @@
     }
     if (method === 'GET' && path === '/ranking') {
       state.xssTicket = uuid();
-      return { rows: leaderboard(),
+      // 未プレイでもXSS演習を試せる表示用データ。成績・履歴には保存しない。
+      const rows = await leaderboard();
+      return { rows: rows.map(p => ({ ...p, allowHtml: !fixed })),
+        preview: state.published === false || rows.some(p => p.userId === me) ? null : { userId: me, name: state.name, sample: true, allowHtml: !fixed },
         ticket: state.xssTicket, fixed, generation: state.generation };
     }
     if (method === 'POST' && path === '/claims') {

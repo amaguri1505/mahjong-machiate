@@ -26,7 +26,11 @@ const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name:
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 const unb64 = (text: string) => Uint8Array.from(atob(text.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - text.length % 4) % 4)), c => c.charCodeAt(0));
 async function issue(lab: Lab, participant = 'legacy') {
-  const data = b64(encoder.encode(JSON.stringify({ lab: lab.id, participant, exp: Date.now() + 8 * 3600000 })));
+  const sid = crypto.randomUUID();
+  const exp = Date.now() + 8 * 3600000;
+  const sql = client(lab.writeUrl);
+  await sql`insert into ${sql(lab.schema)}.sessions (id, participant_id, expires_at) values (${sid}, ${participant}, ${new Date(exp)})`;
+  const data = b64(encoder.encode(JSON.stringify({ lab: lab.id, participant, sid, exp })));
   return `${data}.${b64(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(data))))}`;
 }
 async function authenticate(request: Request) {
@@ -38,7 +42,12 @@ async function authenticate(request: Request) {
     if (!lab || !Number.isFinite(data.exp) || data.exp < Date.now()) throw new Error();
     const participant = data.participant || 'legacy';
     if (participant !== 'legacy' && !/^[0-9a-f-]{36}$/.test(participant)) throw new Error();
-    return { lab, participant };
+    const sql = client(lab.writeUrl);
+    const sid = data.sid || 'legacy-' + b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(parts.join('.')))));
+    if (!data.sid) await sql`insert into ${sql(lab.schema)}.sessions (id, participant_id, expires_at) values (${sid}, ${participant}, ${new Date(data.exp)}) on conflict do nothing`;
+    const [session] = await sql`select id from ${sql(lab.schema)}.sessions where id = ${sid} and participant_id = ${participant} and expires_at > now()`;
+    if (!session) throw new Error();
+    return { lab, participant, sid };
   } catch { fail(401, '参加コードで再入室してください。'); }
 }
 // 接続プールは資格情報ごとに独立。readerはSQLi専用、writerは固定クエリ専用。
@@ -77,10 +86,12 @@ Deno.serve(async request => {
     if (request.method === 'POST' && path === '/session') {
       const lab = labs.find(l => l.code === body.code);
       if (!lab) fail(401, '参加コードが違います。');
+      const writer = client(lab.writeUrl);
+      if (body.action === 'login') fail(400, '名前と参加コードで新しく参加してください。');
       if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 40) fail(400, '参加者名を1〜40文字で入力してください。');
       const participant = crypto.randomUUID();
       const name = body.name.trim();
-      await client(lab.writeUrl).begin(async sql => {
+      await writer.begin(async sql => {
         const [user] = await sql`insert into ${sql(lab.schema)}.users (id, participant_id, name) values (${participant}, ${participant}, ${name}) returning profile_id`;
         for (const mode of ['vulnerable', 'fixed']) {
           const value = { ...seed(user.profile_id), userId: user.profile_id, name, participantName: name };
@@ -89,7 +100,17 @@ Deno.serve(async request => {
       });
       return reply(200, { token: await issue(lab, participant), lab: lab.id, participant });
     }
-    const { lab, participant } = (await authenticate(request))!;
+    let authenticated;
+    try { authenticated = await authenticate(request); } catch (error) {
+      if (request.method === 'POST' && path === '/logout' && (error as any).status === 401) return reply(200, { loggedOut: true });
+      throw error;
+    }
+    const { lab, participant, sid } = authenticated!;
+    if (request.method === 'POST' && path === '/logout') {
+      const sql = client(lab.writeUrl);
+      await sql`update ${sql(lab.schema)}.sessions set expires_at = to_timestamp(0) where id = ${sid} and participant_id = ${participant}`;
+      return reply(200, { loggedOut: true });
+    }
     const match = path.match(/^\/(vulnerable|fixed)(\/.*)$/);
     if (!match) fail(404, '演習モードを確認してください。');
     const [, mode, route] = match!;
@@ -98,29 +119,43 @@ Deno.serve(async request => {
       await sql`set local statement_timeout = '2000ms'`;
       await sql`set local lock_timeout = '2000ms'`;
       await sql`insert into ${sql(lab.schema)}.state (participant_id, mode, value) values (${participant}, ${mode}, ${sql.json(seed())}) on conflict do nothing`;
-      const [row] = await sql`select value from ${sql(lab.schema)}.state where participant_id = ${participant} and mode = ${mode} for update`;
-      const [user] = await sql`select id, profile_id from ${sql(lab.schema)}.users where participant_id = ${participant}`;
+      // users行を先にロックし、別モード・別端末からの同時保存も直列化する。
+      const [user] = await sql`select id, profile_id, games from ${sql(lab.schema)}.users where participant_id = ${participant} for update`;
       if (!user) fail(401, 'ユーザーが見つかりません。再登録してください。');
+      const [row] = await sql`select value from ${sql(lab.schema)}.state where participant_id = ${participant} and mode = ${mode} for update`;
       const state = row.value;
-      if (state.userId !== user.profile_id) {
-        state.games?.forEach((p: any) => { p.userId = p.id === 'seed-guest' ? user.profile_id + 2 : user.profile_id; });
-      }
       state.userId = user.profile_id;
+      state.games = user.games;
       const result = await dispatch({ method: request.method, path: route, query: url.searchParams, body, mode, state,
+        getProfile: async (id: number) => {
+          const [target] = await sql`select u.games, s.value from ${sql(lab.schema)}.users u join ${sql(lab.schema)}.state s on s.participant_id = u.participant_id and s.mode = ${mode} where u.profile_id = ${id}`;
+          return target ? { ...target.value, games: target.games } : null;
+        },
+        getLeaderboard: async () => {
+          const rows = await sql`select u.profile_id, u.games, s.value->>'name' as name, s.value->>'published' as published from ${sql(lab.schema)}.users u join ${sql(lab.schema)}.state s on s.participant_id = u.participant_id and s.mode = ${mode}`;
+          return rows.filter((row: any) => row.profile_id === user.profile_id ? state.published !== false : row.published !== 'false').flatMap((row: any) => (row.profile_id === user.profile_id ? state.games : row.games)
+            .filter((p: any) => p.id !== 'seed-self' && p.id !== 'seed-guest')
+            .map((p: any) => ({ ...p, userId: row.profile_id, name: row.profile_id === user.profile_id ? state.name : row.name })));
+        },
         search: async (keyword: string, fixed: boolean) => {
+          const registered = await sql`select u.profile_id, s.value from ${sql(lab.schema)}.users u join ${sql(lab.schema)}.state s on s.participant_id = u.participant_id where s.mode = ${mode}`;
+          const directory = registered.flatMap((row: any) => {
+            const profile = row.profile_id === user.profile_id ? state : row.value;
+            if (row.profile_id !== user.profile_id && profile.published === false) return [];
+            return [{ id: row.profile_id, name: profile.name, published: Number(profile.published !== false) }];
+          });
           const reader = client(lab.readUrl);
           return await reader.begin('read only', async read => {
             await read`set local statement_timeout = '1000ms'`;
-            // 本人のプロフィールはwriterで読み出した現在モードの値をバインドする。
-            // readerへの更新権限追加や、内部状態テーブルへのSELECT許可は不要。
-            const source = `with users as (select $3::text as id, $1::text as name, $2::int as published union all select (id + $3::int - 101)::text, name, published from "${lab.schema}".directory) `;
-            if (fixed) return await read.unsafe(source + 'select id, name, published from users where published = 1 and name like $4 limit 10', [state.name, Number(state.published), state.userId, '%' + keyword + '%'], { prepare: false });
-            // 意図したSQLi。スキーマは環境設定からの固定値。名前のみの教材表に限定。
-            // extended queryを使い複文を拒否。SQLi対策そのものは修正版のパラメータ化。
-            return await read.unsafe(source + `select id, name, published from users where published = 1 and name like '%${keyword}%' limit 10`, [state.name, Number(state.published), state.userId], { prepare: false });
+            // 公開表示名のスナップショットをバインドし、readerへのusers/state権限は追加しない。
+            const source = `with users as (select (id + $2::int - 101)::text as id, name, published from "${lab.schema}".directory where published = 0 union all select id::text, name, published from jsonb_to_recordset($1::jsonb) as t(id int, name text, published int)) `;
+            if (fixed) return await read.unsafe(source + 'select id, name, published from users where published = 1 and name like $3 limit 50', [JSON.stringify(directory), state.userId, '%' + keyword + '%'], { prepare: false });
+            // 意図したSQLi。連結する入力は演習の検索語のみ。
+            return await read.unsafe(source + `select id, name, published from users where published = 1 and name like '%${keyword}%' limit 50`, [JSON.stringify(directory), state.userId], { prepare: false });
           });
         } });
-      await sql`update ${sql(lab.schema)}.state set value = ${sql.json(state)} where participant_id = ${participant} and mode = ${mode}`;
+      await sql`update ${sql(lab.schema)}.users set games = ${sql.json(state.games)} where participant_id = ${participant}`;
+      await sql`update ${sql(lab.schema)}.state set value = ${sql.json({ ...state, games: [] })} where participant_id = ${participant} and mode = ${mode}`;
       return result;
     });
     return reply(200, result);

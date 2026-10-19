@@ -22,6 +22,7 @@ const rankingList = $("ranking-list");
 const rankingEmpty = $("ranking-empty");
 const reviewList = $("review-list");
 const howtoOverlay = $("howto-overlay");
+const interruptBtn = $("interrupt-btn");
 
 const KANJI_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
 const SUIT_CHARS = ["萬", "筒", "索"];
@@ -31,6 +32,7 @@ const NAME_KEY = "mahjong-wait-quiz:name";
 
 // phase: "ready"（開始前） / "answer"（回答中） / "over"（時間切れ）
 let phase = "ready";
+let animationFrame = null;
 let timeLeft, score, streak, bestStreak, solved, questionNo, mode, hand, analysis, lastTick;
 let history = [];
 const selected = new Set();
@@ -202,6 +204,8 @@ function renderReview() {
 }
 
 function startGame() {
+  cancelAnimationFrame(animationFrame);
+  if (interruptBtn) interruptBtn.hidden = false;
   timeLeft = L.GAME_SECONDS;
   score = 0;
   streak = 0;
@@ -218,10 +222,33 @@ function startGame() {
   renderStatus();
   phase = "answer";
   lastTick = performance.now();
-  requestAnimationFrame(tick);
+  animationFrame = requestAnimationFrame(tick);
+}
+
+function interruptGame() {
+  if (phase !== "answer") return;
+  phase = "ready";
+  cancelAnimationFrame(animationFrame);
+  animationFrame = null;
+  pendingPlay = null;
+  myEntryId = null;
+  history = [];
+  score = streak = bestStreak = solved = questionNo = 0;
+  timeLeft = L.GAME_SECONDS;
+  lastResultEl.hidden = true;
+  endOverlay.hidden = true;
+  howtoOverlay.hidden = true;
+  startOverlay.hidden = false;
+  if (interruptBtn) interruptBtn.hidden = true;
+  newQuestion();
+  renderStatus();
+  window.dispatchEvent(new CustomEvent("game-interrupted"));
+  $("start-btn").focus();
 }
 
 function endGame() {
+  cancelAnimationFrame(animationFrame);
+  if (interruptBtn) interruptBtn.hidden = true;
   phase = "over";
   $("final-score").textContent = formatPoints(score);
   $("final-solved").textContent = `${solved}問`;
@@ -255,7 +282,7 @@ function tick(now) {
     endGame();
     return;
   }
-  requestAnimationFrame(tick);
+  animationFrame = requestAnimationFrame(tick);
 }
 
 // ---- ランキング ----
@@ -339,8 +366,9 @@ async function saveOnlinePlay() {
     myEntryId = await rankingStore.add(pendingPlay);
     pendingPlay = null;
     renderRanking();
-    onlineStatus.textContent =
-      rank <= window.Ranking.TOP_N
+    onlineStatus.textContent = window.Online?.rankingPerUser
+      ? "記録しました。ランキングには自己ベストが掲載されます。"
+      : rank <= window.Ranking.TOP_N
         ? `${rank}位で記録しました。マイページにも残ります。`
         : `記録しました。上位${window.Ranking.TOP_N}位には入りませんでした。`;
   } catch {
@@ -381,6 +409,7 @@ paletteEl.addEventListener("click", (e) => {
 $("clear-btn").addEventListener("click", clearSelection);
 $("submit-btn").addEventListener("click", submit);
 $("start-btn").addEventListener("click", startGame);
+interruptBtn?.addEventListener("click", interruptGame);
 $("restart-btn").addEventListener("click", startGame);
 entryForm.addEventListener("submit", registerScore);
 document.querySelectorAll("[data-open-howto]").forEach((btn) => btn.addEventListener("click", openHowto));
@@ -415,6 +444,21 @@ newQuestion();
 renderStatus();
 renderHowto();
 setupRanking();
-window.Account.onChange(() => {
+window.Account.onChange((account) => {
+  rankingStore?.refresh?.();
+  if (window.Online?.rankingPerUser && !account) {
+    // 演習の新規参加方式では、前の参加者のプレイを次の参加者へ引き継がない。
+    phase = "ready";
+    cancelAnimationFrame(animationFrame);
+    if (interruptBtn) interruptBtn.hidden = true;
+    pendingPlay = null;
+    myEntryId = null;
+    rankingEntries = [];
+    endOverlay.hidden = true;
+    howtoOverlay.hidden = true;
+    startOverlay.hidden = false;
+    renderRanking();
+    return;
+  }
   if (phase === "over") saveOnlinePlay();
 });

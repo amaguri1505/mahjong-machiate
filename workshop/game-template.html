@@ -101,7 +101,10 @@
   <main class="app">
     <header class="topbar">
       <h1 class="brand"><svg class="neko night brand-neko" aria-hidden="true"><use href="#neko-sit" /></svg>待ち当て</h1>
-      <button type="button" class="howto-link" data-open-howto>遊び方</button>
+      <div class="game-actions">
+        <button type="button" class="howto-link" id="interrupt-btn" hidden>中断</button>
+        <button type="button" class="howto-link" data-open-howto>遊び方</button>
+      </div>
       <div class="stats">
         <div class="stat">
           <span class="stat-label">残り</span>
@@ -148,7 +151,7 @@
         <li><strong>3問連続で正解すると清一色</strong>の問題に変わります。間違えると連続正解が0に戻り、普通の手に戻ります。</li>
         <li>答えるとすぐ次の問題に進みます。前の問題の結果は決定ボタンの下に出ます。</li>
       </ul>
-      <button type="button" class="link-btn" data-open-howto>麻雀の形がわからないときは「遊び方」へ</button>
+      <button type="button" class="btn ghost" data-open-howto>遊び方</button>
       <div class="account-slot" hidden></div>
       <button type="button" class="btn primary" id="start-btn">はじめる</button>
     </div>
@@ -249,8 +252,14 @@
         <label for="profile-name">表示名（ランキングに出ます）</label>
         <div class="entry-row">
           <input id="profile-name" type="text" autocomplete="nickname" placeholder="名無し" />
-          <button type="submit" class="btn primary" id="profile-btn">変更</button>
+          <button type="submit" class="btn primary" id="profile-btn">保存</button>
         </div>
+        <label class="publication-toggle" for="profile-published">
+          <span>登録者検索・ランキングへの公開</span>
+          <input id="profile-published" type="checkbox" role="switch" aria-describedby="publication-help" checked />
+          <span id="publication-state">公開</span>
+        </label>
+        <p id="publication-help" class="form-note">「保存」で反映されます。非公開にすると登録者検索・ランキングに表示されません。得点は保存され、公開に戻すと再び掲載されます。</p>
         <p class="entry-status" id="profile-status" aria-live="polite"></p>
       </form>
 

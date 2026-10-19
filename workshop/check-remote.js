@@ -8,11 +8,6 @@ const env = fs.readFileSync(path.join(__dirname, '.setup', project, 'secrets.env
 const labs = JSON.parse(env.split('\n').find(s => s.startsWith('WORKSHOP_LABS=')).slice(14));
 const base = `https://${project}.supabase.co/functions/v1/workshop`;
 async function call(route, token, body, expected = 200) {
-  if (route.endsWith('/profiles/101') || route.endsWith('/profiles/102')) {
-    const mode = route.split('/')[1];
-    const me = (await call('/' + mode + '/status', token)).me;
-    route = '/' + mode + '/profiles/' + (me + (route.endsWith('/102') ? 1 : 0));
-  }
   const response = await fetch(base + route, { method: body === undefined ? 'GET' : 'POST', credentials: 'include', signal: AbortSignal.timeout(20000),
     headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:4173', Priority: 'u=1, i', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify({ encoding: 'base64-json', data: Buffer.from(JSON.stringify(body)).toString('base64') }) }) });
@@ -48,24 +43,25 @@ async function call(route, token, body, expected = 200) {
   for (const token of [a, b]) for (const mode of ['vulnerable', 'fixed']) await call(`/${mode}/reset`, token, {});
   const sa = await call('/vulnerable/status', a);
   const sb = await call('/vulnerable/status', b);
-  const rival = await call('/vulnerable/profiles/102', a);
-  await call('/fixed/profiles/102', a, undefined, 404);
-  await call('/vulnerable/claims', a, { challenge: 'idor', evidence: rival.memo.split('：')[1], generation: sa.generation });
-  await call('/vulnerable/claims', b, { challenge: 'idor', evidence: rival.memo.split('：')[1], generation: sb.generation }, 400);
+  const targetId = (await call('/vulnerable/status', sameCode)).me;
+  const rival = await call('/vulnerable/profiles/' + targetId, a);
+  await call('/fixed/profiles/' + targetId, a, undefined, 404);
+  await call('/vulnerable/claims', a, { challenge: 'idor', evidence: rival.evidence, generation: sa.generation });
+  await call('/vulnerable/claims', b, { challenge: 'idor', evidence: rival.evidence, generation: sb.generation }, 400);
   console.log('IDOR・修正版・他ペアの証拠拒否: OK');
   const injection = "' OR 1=1 -- ";
   const result = await call('/vulnerable/directory', a, { q: injection });
-  assert.equal(result.rows.length, 4);
+  assert.ok(result.rows.some(row => row.name === '接続確認A'));
   assert.equal((await call('/fixed/directory', a, { q: injection })).rows.length, 0);
-  assert.equal((await call('/fixed/directory', a, { q: 'ゲスト' })).rows.length, 1);
+  assert.ok((await call('/fixed/directory', a, { q: '接続確認A' })).rows.length >= 1);
   await call('/vulnerable/claims', a, { challenge: 'sqli', evidence: result.evidence, generation: sa.generation });
   await call('/vulnerable/directory', a, { q: "' UNION SELECT id::text, name, published FROM lab_2.directory -- " }, 400);
   await call('/vulnerable/directory', a, { q: "' UNION SELECT '0', value::text, 0 FROM lab_1.state -- " }, 400);
   console.log('SQLi・パラメータ化・DB権限による他ペアと状態表の分離: OK');
   const name = '<img src=x onerror="celebrate()">';
   await call('/vulnerable/profile', a, { name, generation: sa.generation });
-  assert.equal((await call('/vulnerable/ranking', a)).rows[0].name, name);
-  assert.equal((await call('/vulnerable/ranking', b)).rows[0].name, '接続確認B');
+  assert.equal((await call('/vulnerable/ranking', a)).preview.name, name);
+  assert.equal((await call('/vulnerable/ranking', b)).preview.name, '接続確認B');
   assert.equal((await call('/vulnerable/profiles/101', sameCode)).name, '接続確認A');
   assert.deepEqual((await call('/vulnerable/status', sameCode)).solved, []);
   await call('/vulnerable/reset', sameCode, {});
@@ -73,10 +69,10 @@ async function call(route, token, body, expected = 200) {
   console.log('同じコード・同じ参加者名のユーザー分離: OK');
   await call('/vulnerable/plays', a, { generation: sa.generation, score: 12000, solved: 3, answered: 4, bestStreak: 3 });
   assert.equal((await call('/vulnerable/profiles/101', a)).best, 12000);
-  assert.equal((await call('/vulnerable/ranking', a)).rows[0].score, 12000);
+  assert.equal((await call('/vulnerable/profiles/101', a)).history[0].score, 12000);
   console.log('保存名の取得・ゲーム結果の保存・ランキング: OK（ブラウザ内XSS実行は別検証）');
   await call('/vulnerable/reset', a, {});
   await call('/vulnerable/profile', a, { name: '旧世代', generation: sa.generation }, 409);
   for (const token of [a, b]) for (const mode of ['vulnerable', 'fixed']) await call(`/${mode}/reset`, token, {});
-  console.log('リセット・古い要求拒否: OK。検証に使った2領域を初期化しました。');
+  console.log('リセット・古い要求拒否: OK。検証ユーザーの演習状態を初期化しました。成績は保持されます。');
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

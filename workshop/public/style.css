@@ -1147,6 +1147,20 @@ button.tile.selected {
   grid-template-columns: minmax(0, 1fr) auto 5.5em;
 }
 
+/* ヘッダーの操作ボタンは横並びを保つ。 */
+.game-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.game-actions .howto-link { margin-left: 0; }
+#interrupt-btn { background: var(--surface); }
+@media (max-width: 520px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar .stats { margin-left: auto; }
+}
+
 /* ---- 遊び方 ---- */
 .howto-link {
   margin-left: auto;

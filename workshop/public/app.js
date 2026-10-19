@@ -37,13 +37,14 @@ async function api(path, body, context = { mode, token }) {
   try {
   // Supabaseの入口で教材文字列が遮断されるため転送時だけBase64化する。暗号化・SQLi対策ではない。
   const wire = body === undefined ? undefined : { encoding: 'base64-json', data: btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(body)))) };
-  const response = await fetch(`${base}${path === '/session' ? path : '/' + context.mode + path}`, {
+  const response = await fetch(`${base}${['/session', '/logout'].includes(path) ? path : '/' + context.mode + path}`, {
     method: body === undefined ? 'GET' : 'POST',
+    ...(path === '/logout' ? { signal: AbortSignal.timeout(5000) } : {}),
     headers: { 'Content-Type': 'application/json', ...(context.token ? { Authorization: `Bearer ${context.token}` } : {}) },
     ...(wire === undefined ? {} : { body: JSON.stringify(wire) })
   });
   const value = await response.json();
-  if (!response.ok) throw new Error(value.error || '通信に失敗しました。');
+  if (!response.ok) throw Object.assign(new Error(value.error || '通信に失敗しました。'), { status: response.status });
   return value;
   } finally {
     pendingRequests--;
@@ -52,6 +53,7 @@ async function api(path, body, context = { mode, token }) {
 }
 function run(fn) { return async event => { event?.preventDefault(); try { await fn(event); } catch (e) { notice(e.message); } }; }
 function setAccount(name) {
+  if (name !== null && !token) return;
   account = name === null ? null : { id: status.me, name };
   document.querySelectorAll('.account-slot').forEach(slot => {
     slot.replaceChildren(); slot.hidden = false;
@@ -64,7 +66,11 @@ function setAccount(name) {
   });
   listeners.forEach(fn => fn(account));
 }
-async function refresh() { status = await api('/status'); }
+async function refresh() {
+  const currentToken = token;
+  const next = await api('/status');
+  if (currentToken === token) status = next;
+}
 async function claim(challenge, evidence) {
   await api('/claims', { challenge, evidence, generation: status.generation });
   await refresh(); notice('課題クリア！');
@@ -72,11 +78,11 @@ async function claim(challenge, evidence) {
 async function openMyPage() {
   const rev = ++revision;
   $('mypage-overlay').hidden = false;
-  $('profile').textContent = '読み込み中…';
   const profile = await api('/profiles/' + encodeURIComponent(status.me)); if (rev !== revision) return;
   $('mypage-email').textContent = `${profile.name} さん / プロフィールID ${profile.id}`;
-  $('profile').textContent = profile.memo;
   $('profile-name').value = profile.name; $('preview').textContent = profile.name;
+  $('profile-published').checked = profile.published !== false;
+  $('publication-state').textContent = $('profile-published').checked ? '公開' : '非公開';
   const summary = L.summarizePlays(profile.history);
   $('my-best').textContent = `${summary.best.toLocaleString('ja-JP')}点`;
   $('my-count').textContent = `${summary.count}回`;
@@ -96,8 +102,8 @@ async function loadRanking() {
   if (!account) return;
   const rev = revision;
   const ranking = await api('/ranking'); if (rev !== revision) return;
-  activeRanking = { ...ranking, mode };
-  if (frameReady) $('ranking-frame').contentWindow.postMessage({ type: 'ranking', ...ranking }, '*');
+  activeRanking = { ...ranking, mode, me: status.me };
+  if (frameReady) $('ranking-frame').contentWindow?.postMessage({ type: 'ranking', ...activeRanking }, '*');
 }
 async function openRanking(inGame) {
   revision++; activeRanking = null;
@@ -113,23 +119,26 @@ async function openRanking(inGame) {
 function clearViews() {
   revision++; activeRanking = null;
   for (const id of ['mypage-overlay', 'ranking-overlay']) $(id).hidden = true;
-  for (const id of ['profile', 'preview', 'search-evidence', 'profile-status']) $(id).textContent = '';
+  for (const id of ['preview', 'search-evidence', 'profile-status']) $(id).textContent = '';
   $('profile-name').value = ''; $('keyword').value = ''; $('search-results').replaceChildren();
-  $('ranking-frame').contentWindow.postMessage({ type: 'ranking', rows: [], fixed: true, ticket: null }, '*');
+  $('ranking-frame').contentWindow?.postMessage({ type: 'ranking', rows: [], fixed: true, ticket: null }, '*');
 }
 async function enter() {
+  const currentToken = token;
   await refresh();
+  if (!token || token !== currentToken) return;
   const profile = await api('/profiles/' + encodeURIComponent(status.me));
+  if (token !== currentToken) return;
   $('entry').hidden = true; setAccount(profile.name);
   // 元の開始画面から普通にゲームを開始できる。課題はプレイなしでも開ける。
 }
 function gameLock(value) {
   playing = value;
-  for (const id of ['mode', 'reset', 'logout-btn']) $(id).disabled = value;
 }
 window.Account = { current: () => account, onChange: fn => listeners.push(fn) };
 window.Online = {
   available: true,
+  rankingPerUser: true,
   async topPlays() {
     if (!account) return [];
     const result = await api('/leaderboard');
@@ -148,55 +157,57 @@ $('login').addEventListener('submit', run(async () => {
   button.disabled = true;
   try {
   const session = await api('/session', { code: $('code').value.trim(), name: $('participant-name').value.trim() });
-  token = session.token; sessionStorage.setItem(tokenKey, token); $('code').value = '';
-  await enter(); notice('登録しました。さっそく遊んでみましょう！');
+  token = session.token; sessionStorage.setItem(tokenKey, token);
+  await enter(); notice('新しいユーザーで参加しました。成績はマイページで確認できます。');
   } finally { button.disabled = false; }
 }));
 $('profile-name').maxLength = 300;
 $('profile-name').addEventListener('input', () => { $('preview').textContent = $('profile-name').value; });
+$('profile-published').addEventListener('change', () => {
+  $('publication-state').textContent = $('profile-published').checked ? '公開' : '非公開';
+  $('profile-status').textContent = '変更を反映するには「保存」を押してください。';
+});
 $('profile-form').addEventListener('submit', run(async () => {
-  const result = await api('/profile', { name: $('profile-name').value, generation: status.generation });
-  setAccount(result.name); $('profile-status').textContent = '保存しました。ランキングで表示を確認できます。';
+  const result = await api('/profile', { name: $('profile-name').value, published: $('profile-published').checked, generation: status.generation });
+  setAccount(result.name); $('profile-status').textContent = '表示名と公開設定を保存しました。';
 }));
 $('search-form').addEventListener('submit', run(async () => {
   const rev = revision; $('search-results').replaceChildren(); $('search-evidence').textContent = '';
   const result = await api('/directory', { q: $('keyword').value }); if (rev !== revision) return;
   for (const row of result.rows) { const li = document.createElement('li'); li.textContent = row.name; $('search-results').append(li); }
-  $('search-evidence').textContent = result.evidence ? `証拠コード：${result.evidence}` : `${result.rows.length}件見つかりました。`;
+  $('search-evidence').textContent = result.rows.length === 50 ? '検索結果を50件まで表示しています。名前を絞り込んで検索できます。' : `${result.rows.length}件見つかりました。`;
 }));
 $('mypage-close').addEventListener('click', () => { revision++; $('mypage-overlay').hidden = true; });
 $('ranking-close').addEventListener('click', run(async () => { $('ranking-overlay').hidden = true; if (!$('end-overlay').hidden) await openRanking(true); }));
 $('reload-ranking').addEventListener('click', run(loadRanking));
  document.querySelectorAll('[data-workshop-ranking]').forEach(button => button.addEventListener('click', run(() => openRanking(false))));
-$('mode').addEventListener('change', run(async () => {
-  if (playing) return;
-  mode = $('mode').value; clearViews(); await refresh();
-  setAccount((await api('/profiles/' + encodeURIComponent(status.me))).name);
-  if (!$('end-overlay').hidden) await openRanking(true);
-  notice('比較モードを切り替えました。同じ入力をもう一度試してください。');
+$('logout-btn').addEventListener('click', run(async () => {
+  const previous = { mode, token };
+  // API失敗や期限切れでも、この端末のセッションと画面は必ず解除する。
+  token = ''; sessionStorage.removeItem(tokenKey); playContext = null; status = null;
+  gameLock(false); clearViews(); $('entry').hidden = false; setAccount(null);
+  try {
+    await api('/logout', {}, previous);
+  } catch (error) {
+    if (error.status !== 401 && !token) notice('この端末ではログアウトしました。サーバー側の終了確認はできませんでした。');
+  }
 }));
-$('reset').addEventListener('click', run(async () => {
-  if (playing || !confirm('このモードのプレイ記録・名前・成功状況を初期化しますか？')) return;
-  clearViews(); await api('/reset', {}); await refresh(); setAccount((await api('/profiles/' + encodeURIComponent(status.me))).name);
-  if (!$('end-overlay').hidden) await openRanking(true);
-  notice('現在の演習領域を初期化しました。');
-}));
-$('logout-btn').addEventListener('click', () => {
-  if (playing) return;
-  token = ''; sessionStorage.removeItem(tokenKey); clearViews(); setAccount(null);
-  $('entry').hidden = false;
-});
 for (const id of ['start-btn', 'restart-btn']) $(id).addEventListener('click', () => {
   playContext = { mode, token, generation: status?.generation }; gameLock(true);
+});
+window.addEventListener('game-interrupted', () => {
+  playContext = null;
+  gameLock(false);
+  notice('中断しました。この回の得点は保存されません。');
 });
 new MutationObserver(() => {
   if (!$('end-overlay').hidden) { gameLock(false); run(() => openRanking(true))(); }
 }).observe($('end-overlay'), { attributes: true, attributeFilter: ['hidden'] });
 window.addEventListener('message', run(async event => {
-  if (event.source !== $('ranking-frame').contentWindow || event.origin !== 'null') return;
+  if (event.source !== $('ranking-frame').contentWindow || event.origin !== location.origin) return;
   if (event.data?.type === 'ranking-ready') {
     frameReady = true;
-    if (activeRanking) $('ranking-frame').contentWindow.postMessage({ type: 'ranking', ...activeRanking }, '*');
+    if (activeRanking) $('ranking-frame').contentWindow?.postMessage({ type: 'ranking', ...activeRanking }, '*');
   }
   if (event.data?.type === 'xss-proof' && activeRanking && activeRanking.mode === mode && !activeRanking.fixed &&
       event.data.ticket === activeRanking.ticket && activeRanking.generation === status?.generation) {

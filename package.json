@@ -2,6 +2,7 @@
   "name": "gamemvp",
   "private": true,
   "scripts": {
+    "dev": "node --watch workshop/server.js",
     "test": "node --test"
   }
 }

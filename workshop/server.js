@@ -2,7 +2,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, createHash } = require('node:crypto');
 const { participantCode } = require('./participant-code');
 const { DatabaseSync } = require('node:sqlite');
 const { seed, dispatch, fail, decodeBody } = require('./supabase/functions/_shared/core.js');
@@ -15,16 +15,41 @@ function createWorkshop(options = {}) {
     if (!/^[a-z]{20}$/.test(project.projectRef) || production.includes(remoteOrigin)) throw new Error('演習専用プロジェクトの設定を確認してください。');
   }
   const labs = new Map();
-  const sessions = new Map();
-  const users = new Map();
-  let nextProfileId = 101;
-  const codes = options.supabase ? [] : options.codes || [participantCode(0), participantCode(1)];
+  const databasePath = options.databasePath || (options.memory || options.supabase ? ':memory:' : path.join(__dirname, 'game.sqlite'));
+  const storage = new DatabaseSync(databasePath);
+  storage.exec(`PRAGMA busy_timeout = 5000;
+    CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, lab_id INTEGER NOT NULL,
+      name TEXT NOT NULL, states TEXT NOT NULL, games TEXT NOT NULL DEFAULT '[]');
+    INSERT OR IGNORE INTO sqlite_sequence(name, seq) SELECT 'accounts', 100 WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'accounts');
+    CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES accounts(id), expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+  // 旧ログイン方式のDBも、ID・成績・セッションを保持して移行する。
+  if (storage.prepare('PRAGMA table_info(accounts)').all().some(column => column.name === 'login_id')) {
+    storage.exec('PRAGMA foreign_keys = OFF');
+    try { storage.exec(`BEGIN IMMEDIATE;
+      CREATE TABLE participants_new (id INTEGER PRIMARY KEY AUTOINCREMENT, lab_id INTEGER NOT NULL,
+        name TEXT NOT NULL, states TEXT NOT NULL, games TEXT NOT NULL DEFAULT '[]');
+      INSERT INTO participants_new SELECT id, lab_id, name, states, games FROM accounts;
+      INSERT INTO sqlite_sequence(name, seq) SELECT 'participants_new', seq FROM sqlite_sequence WHERE name = 'accounts' AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'participants_new');
+      UPDATE sqlite_sequence SET seq = MAX(seq, (SELECT seq FROM sqlite_sequence WHERE name = 'accounts')) WHERE name = 'participants_new';
+      DROP TABLE accounts;
+      ALTER TABLE participants_new RENAME TO accounts;
+      COMMIT;`);
+    } catch (error) { storage.exec('ROLLBACK'); throw error; }
+    finally { storage.exec('PRAGMA foreign_keys = ON'); }
+  }
+  if (databasePath !== ':memory:') fs.chmodSync(databasePath, 0o600);
+  const savedCodes = storage.prepare("SELECT value FROM settings WHERE key = 'codes'").get();
+  const codes = options.supabase ? [] : options.codes || (savedCodes ? JSON.parse(savedCodes.value) : [participantCode(0), participantCode(1)]);
+  if (!savedCodes && !options.supabase) storage.prepare("INSERT INTO settings VALUES ('codes', ?)").run(JSON.stringify(codes));
+  const digest = token => createHash('sha256').update(token).digest('hex');
+  let tail = Promise.resolve();
   codes.forEach((code, i) => {
     const db = new DatabaseSync(':memory:');
     db.exec(`CREATE TABLE directory (id INTEGER PRIMARY KEY, name TEXT, published INTEGER);
       INSERT INTO directory VALUES (103,'ゲスト猫',1),(102,'ライバル猫',0),(104,'森の猫',0);
       PRAGMA query_only = ON;`);
-    labs.set(code, { id: i + 1, db, states: { vulnerable: seed(), fixed: seed() }, tail: Promise.resolve() });
+    labs.set(code, { id: i + 1, db });
   });
   async function handle(req, res) {
     const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -68,52 +93,85 @@ function createWorkshop(options = {}) {
       if (req.method === 'POST' && url.pathname === '/api/session') {
         let lab = labs.get(body.code);
         if (!lab) fail(401, '参加コードが違います。');
+        if (body.action === 'login') fail(400, '再ログインはできません。名前と参加コードで新しく参加してください。');
         if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 40) fail(400, '参加者名を1〜40文字で入力してください。');
         const name = body.name.trim();
-        const userId = nextProfileId++;
-        users.set(userId, { id: userId, name, labId: lab.id });
-        lab = { ...lab, userId, states: { vulnerable: { ...seed(userId), userId, name, participantName: name }, fixed: { ...seed(userId), userId, name, participantName: name } }, tail: Promise.resolve() };
+        let user;
+        // PRIMARY KEYとAUTOINCREMENTで、既存・削除済みIDを再利用しない。
+        storage.exec('BEGIN IMMEDIATE');
+        try {
+          const result = storage.prepare('INSERT INTO accounts (lab_id, name, states) VALUES (?, ?, ?)').run(lab.id, name, '{}');
+          const userId = Number(result.lastInsertRowid);
+          const states = Object.fromEntries(['vulnerable', 'fixed'].map(mode => [mode, { ...seed(userId), userId, name, participantName: name }]));
+          storage.prepare('UPDATE accounts SET states = ? WHERE id = ?').run(JSON.stringify(states), userId);
+          storage.exec('COMMIT');
+          user = { id: userId };
+        } catch (error) { storage.exec('ROLLBACK'); throw error; }
         const token = randomBytes(32).toString('hex');
-        sessions.set(token, { lab, expires: Date.now() + 8 * 3600000 });
-        reply(200, { token, lab: lab.id, participant: userId }); return;
+        storage.prepare('INSERT INTO sessions VALUES (?, ?, ?)').run(digest(token), user.id, Date.now() + 8 * 3600000);
+        reply(200, { token, lab: lab.id, participant: user.id }); return;
       }
-      const session = sessions.get((req.headers.authorization || '').replace(/^Bearer /, ''));
-      if (!session || session.expires < Date.now()) fail(401, '参加コードで入室してください。');
+      const tokenHash = digest((req.headers.authorization || '').replace(/^Bearer /, ''));
+      const session = storage.prepare('SELECT * FROM sessions WHERE token = ?').get(tokenHash);
+      if (req.method === 'POST' && url.pathname === '/api/logout') {
+        storage.prepare('DELETE FROM sessions WHERE token = ?').run(tokenHash);
+        reply(200, { loggedOut: true }); return;
+      }
+      if (!session || session.expires < Date.now()) fail(401, '名前と参加コードで参加してください。');
       const match = url.pathname.match(/^\/api\/(vulnerable|fixed)(\/.*)$/);
       if (!match) fail(404, '演習モードを確認してください。');
       const [, mode, route] = match;
-      const lab = session.lab;
-      // 同じペアの更新とリセットを直列化。別ペアのDBにはアクセスしない。
-      const work = lab.tail.then(async () => {
-        const state = structuredClone(lab.states[mode]);
+      // 全セッションの読み込み・更新を直列化し、同じユーザーの同時プレイも落とさない。
+      const work = tail.then(async () => {
+        const user = storage.prepare('SELECT * FROM accounts WHERE id = ?').get(session.user_id);
+        if (!user) fail(401, '名前と参加コードで参加してください。');
+        const lab = [...labs.values()].find(l => l.id === user.lab_id);
+        const states = JSON.parse(user.states);
+        const state = states[mode];
+        state.games = JSON.parse(user.games);
         const result = await dispatch({ method: req.method, path: route, query: url.searchParams, body, mode, state,
+          getProfile: async id => {
+            const target = storage.prepare('SELECT states, games FROM accounts WHERE id = ? AND lab_id = ?').get(id, user.lab_id);
+            return target ? { ...JSON.parse(target.states)[mode], games: JSON.parse(target.games) } : null;
+          },
+          getLeaderboard: async () => storage.prepare('SELECT id, states, games FROM accounts WHERE lab_id = ?').all(user.lab_id).flatMap(row => {
+            const profile = row.id === user.id ? state : JSON.parse(row.states)[mode];
+            if (profile.published === false) return [];
+            const games = row.id === user.id ? state.games : JSON.parse(row.games);
+            return games.filter(p => p.id !== 'seed-self' && p.id !== 'seed-guest').map(p => ({ ...p, userId: row.id, name: profile.name }));
+          }),
           search: async (keyword, fixed) => {
-            // 教材の唯一のSQLi。sqliteの実SQLエンジンで実行する。
-            // 本人の保存済みプロフィールと架空ユーザーを、読み取り専用SQLの中でまとめる。
-            // 本人の名前・公開設定は常にバインド。意図的に連結するのは弱点版の検索語だけ。
-            const source = 'WITH users AS (SELECT ? AS id, ? AS name, ? AS published UNION ALL SELECT id + ? - 101, name, published FROM directory) ';
-            const sql = source + (fixed ? 'SELECT id, name, published FROM users WHERE published = 1 AND name LIKE ? LIMIT 10'
-              : `SELECT id, name, published FROM users WHERE published = 1 AND name LIKE '%${keyword}%' LIMIT 10`);
-            const args = [state.userId, state.name, Number(state.published), state.userId];
+            // 実参加者の公開表示名だけを渡す。セッションや非公開プロフィールは検索DBに置かない。
+            const directory = storage.prepare('SELECT id, states FROM accounts WHERE lab_id = ?').all(user.lab_id).flatMap(row => {
+              const profile = row.id === user.id ? state : JSON.parse(row.states)[mode];
+              if (row.id !== user.id && profile.published === false) return [];
+              return [{ id: row.id, name: profile.name, published: Number(profile.published !== false) }];
+            });
+            // 非掲載の架空名はSQLi演習だけに残し、通常検索には出さない。
+            const source = "WITH users AS (SELECT id + ? - 101 AS id, name, published FROM directory WHERE published = 0 UNION ALL SELECT json_extract(value, '$.id'), json_extract(value, '$.name'), json_extract(value, '$.published') FROM json_each(?)) ";
+            const sql = source + (fixed ? 'SELECT id, name, published FROM users WHERE published = 1 AND name LIKE ? LIMIT 50'
+              : `SELECT id, name, published FROM users WHERE published = 1 AND name LIKE '%${keyword}%' LIMIT 50`);
+            const args = [state.userId, JSON.stringify(directory)];
             return fixed ? lab.db.prepare(sql).all(...args, `%${keyword}%`) : lab.db.prepare(sql).all(...args);
           } });
-        lab.states[mode] = state;
+        states[mode] = { ...state, games: [] };
+        storage.prepare('UPDATE accounts SET states = ?, games = ? WHERE id = ?').run(JSON.stringify(states), JSON.stringify(state.games), user.id);
         return result;
       });
-      lab.tail = work.catch(() => {});
+      tail = work.catch(() => {});
       reply(200, await work);
     } catch (e) { reply(e.status || 500, { error: e.status ? e.message : '教材サーバーでエラーが発生しました。' }); }
   }
   const server = http.createServer(handle);
-  return { server, codes, close: () => { server.close(); for (const lab of labs.values()) lab.db.close(); } };
+  return { server, codes, close: () => { server.close(); for (const lab of labs.values()) lab.db.close(); storage.close(); } };
 }
 if (require.main === module) {
   const remote = process.argv.includes('--supabase');
-  const workshop = createWorkshop({ supabase: remote });
-  workshop.server.listen(Number(process.env.PORT || 4173), '127.0.0.1', () => {
+  const workshop = createWorkshop({ supabase: remote, databasePath: remote ? undefined : path.join(__dirname, 'game.sqlite') });
+  workshop.server.listen(Number(process.env.PORT || (remote ? 4173 : 4176)), '127.0.0.1', () => {
     console.log(`演習版: http://127.0.0.1:${workshop.server.address().port}`);
     workshop.codes.forEach((code, i) => console.log(`ペア${i + 1}の参加コード: ${code}`));
-    console.log(remote ? 'API接続先: 演習専用Supabase。参加コードは.setup内のparticipants.txtを使用します。' : 'データはメモリ内のみ。サーバー再起動で全領域を初期化します。');
+    console.log(remote ? 'API接続先: 演習専用Supabase。参加コードは.setup内のparticipants.txtを使用します。' : 'ユーザーと成績はworkshop/game.sqliteに保存します。再起動しても維持します。');
   });
 }
 module.exports = { createWorkshop };
